@@ -8,7 +8,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "tasks")
-// 1. Class
+// 1. Class declaration
 public class Task {
 
   @Id
