@@ -14,7 +14,7 @@ public class Task {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   // 2. Private fields
-  private long id;
+  private Long id;
 
   private String title;
   private String description;
@@ -35,7 +35,7 @@ public class Task {
     return id;
   }
 
-  public void setId(long id) {
+  public void setId(Long id) {
     this.id = id;
   }
 
