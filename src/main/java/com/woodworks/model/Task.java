@@ -5,6 +5,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
 
 @Entity
 @Table(name = "tasks")
@@ -16,6 +17,7 @@ public class Task {
   // 2. Private fields
   private Long id;
 
+  @NotBlank(message = "Task title cannot be blank")
   private String title;
   private String description;
   private boolean completed;
