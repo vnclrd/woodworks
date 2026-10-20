@@ -430,9 +430,11 @@ export default function App() {
           {/* Brand panel (desktop only) */}
           <div className="hidden lg:flex flex-col justify-between bg-[#0C66E4] text-white p-12">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded bg-white text-[#0C66E4] flex items-center justify-center font-bold">
-                W
-              </div>
+              <img 
+                src="src/assets/WoodWorksLogo.png" 
+                alt="WoodWorks Logo" 
+                className="w-10 h-10 rounded-2xl object-contain shadow-sm"
+              />
               <span className="font-semibold text-lg">WoodWorks</span>
             </div>
 
@@ -608,9 +610,11 @@ export default function App() {
           {/* Top navigation */}
           <header className="h-14 bg-white border-b border-[#DFE1E6] flex items-center gap-4 px-4 sticky top-0 z-20">
             <div className="flex items-center gap-2.5 w-52 shrink-0">
-              <div className="w-8 h-8 rounded bg-[#0C66E4] text-white flex items-center justify-center text-sm font-bold">
-                W
-              </div>
+              <img 
+                src="src/assets/WoodWorksLogo.png" 
+                alt="WoodWorks Logo" 
+                className="w-10 h-10 rounded-2xl object-contain shadow-sm border border-[#DFE1E6]"
+              />
               <span className="font-semibold text-[15px]">WoodWorks</span>
             </div>
 
