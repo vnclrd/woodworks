@@ -23,6 +23,13 @@ interface Toast {
 }
 
 export default function App() {
+  // Auth states
+  const [token, setToken] = useState<string | null>(localStorage.getItem('woodworks_token'));
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState('ALL'); // ALL, PENDING, COMPLETED
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,10 +49,49 @@ export default function App() {
 
   const showToast = (message: string, type: Toast['type'] = 'success') => setToast({ message, type });
 
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    const endpoint = authView === 'login' ? '/api/auth/login' : '/api/auth/register';
+
+    try {
+      const response = await fetch(`${BASE_URL.replace(/\/$/, '')}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInput, password: passwordInput })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Authentication failed');
+      }
+
+      // Save token and update state
+      localStorage.setItem('woodworks_token', data.token);
+      setToken(data.token);
+      setEmailInput('');
+      setPasswordInput('');
+      showToast(authView === 'login' ? 'Logged in successfully' : 'Account created successfully');
+      fetchTasks(); // Load tasks for this user
+    } catch (err: any) {
+      setAuthError(err.message);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('woodworks_token');
+    setToken(null);
+    setTasks([]);
+    showToast('Logged out');
+  };
+
   // Fetch tasks on mount
   useEffect(() => {
-    fetchTasks();
-  }, []);
+    if (isDemoMode || token) {
+      fetchTasks();
+    }
+  }, [token]);
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -72,7 +118,11 @@ export default function App() {
 
     // Normal live backend fetching...
     try {
-      const response = await fetch(API_BASE_URL);
+      const response = await fetch(API_BASE_URL, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) throw new Error('Backend offline');
       const data = await response.json();
       setTasks(data);
@@ -115,7 +165,10 @@ export default function App() {
 
         const response = await fetch(url, {
           method,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
           body: JSON.stringify({
             title: currentTask.title,
             description: currentTask.description,
@@ -148,7 +201,6 @@ export default function App() {
     }
   };
 
-  // Inline "Create task" row at the bottom of the list (same POST payload as the modal)
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const title = quickTitle.trim();
@@ -165,7 +217,10 @@ export default function App() {
       try {
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
           body: JSON.stringify({ title, description: '', completed: false })
         });
         if (response.ok) {
@@ -193,10 +248,14 @@ export default function App() {
       return;
     }
 
-    // Normal backend delete logic...
     if (isBackendOnline) {
       try {
-        const response = await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_BASE_URL}/${id}`, { 
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         if (response.ok) {
           setTasks(tasks.filter(t => t.id !== id));
           showToast('Task deleted');
@@ -221,7 +280,10 @@ export default function App() {
       try {
         const response = await fetch(`${API_BASE_URL}/${task.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
           body: JSON.stringify(updated)
         });
         if (response.ok) {
@@ -295,415 +357,499 @@ export default function App() {
   const isFirstLoad = loading && tasks.length === 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F8F9] text-[#172B4D]">
-
-      {/* Demo Mode Banner */}
-      {isDemoMode && (
-        <div className="bg-[#E9F2FF] border-b border-[#0C66E433] px-4 py-2 text-xs text-[#0C66E4] flex items-center justify-between font-medium">
-          <span>💡 <strong>Demo Mode:</strong> You are testing an interactive sandbox. Changes won't affect live production data.</span>
-          <a href="https://github.com/vnclrd/woodworks" target="_blank" rel="noreferrer" className="underline hover:text-[#0055CC]">View Source</a>
-        </div>
-      )}
-
-      {/* Top navigation */}
-      <header className="h-14 bg-white border-b border-[#DFE1E6] flex items-center gap-4 px-4 sticky top-0 z-20">
-        <div className="flex items-center gap-2.5 w-52 shrink-0">
-          <div className="w-8 h-8 rounded bg-[#0C66E4] text-white flex items-center justify-center text-sm font-bold">
-            W
-          </div>
-          <span className="font-semibold text-[15px]">WoodWorks</span>
-        </div>
-
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#626F86]" />
-          <input
-            type="text"
-            aria-label="Search tasks"
-            placeholder="Search tasks"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-9 bg-white border-2 border-[#DFE1E6] hover:bg-[#F7F8F9] rounded pl-9 pr-9 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-[#626F86] hover:bg-[#091E420F] cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={fetchTasks}
-            title="Refresh tasks"
-            aria-label="Refresh tasks"
-            className="h-9 w-9 flex items-center justify-center rounded text-[#44546F] hover:bg-[#091E420F] transition-colors cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            onClick={openCreateModal}
-            className="h-9 flex items-center gap-1.5 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Create
-          </button>
-        </div>
-      </header>
-
-      <div className="flex flex-1">
-
-        {/* Sidebar */}
-        <aside className="hidden md:block w-64 shrink-0 bg-white border-r border-[#DFE1E6] p-3">
-          <div className="flex items-center gap-3 px-2 py-3 mb-2">
-            <div className="w-9 h-9 rounded bg-[#E9F2FF] text-[#0C66E4] flex items-center justify-center">
-              <SquareCheckBig className="w-5 h-5" />
+    <>
+      {!isDemoMode && !token ? (
+        <div className="min-h-screen flex items-center justify-center bg-[#F7F8F9] px-4">
+          <div className="max-w-md w-full bg-white rounded-lg border border-[#DFE1E6] p-8 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded bg-[#0C66E4] text-white flex items-center justify-center font-bold text-lg">
+                W
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold">WoodWorks Tasks</h1>
+                <p className="text-xs text-[#626F86]">Sign in to manage your tasks</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">WoodWorks Tasks</p>
-              <p className="text-xs text-[#626F86]">Task management</p>
-            </div>
-          </div>
 
-          <nav className="space-y-0.5" aria-label="Task filters">
-            {navItems.map(({ key, label, icon: Icon, count }) => (
+            {authError && (
+              <div className="mb-4 p-3 bg-[#FFECEB] border border-[#C9372C33] text-[#C9372C] text-xs rounded">
+                {authError}
+              </div>
+            )}
+
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#44546F] mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full h-10 bg-[#F7F8F9] border border-[#DFE1E6] rounded px-3 text-sm focus:outline-none focus:border-[#0C66E4] focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#44546F] mb-1">Password</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full h-10 bg-[#F7F8F9] border border-[#DFE1E6] rounded px-3 text-sm focus:outline-none focus:border-[#0C66E4] focus:bg-white"
+                />
+              </div>
+
               <button
-                key={key}
-                onClick={() => setFilter(key)}
-                aria-current={filter === key ? 'page' : undefined}
-                className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded text-sm transition-colors cursor-pointer ${
-                  filter === key
-                    ? 'bg-[#E9F2FF] text-[#0C66E4] font-semibold'
-                    : 'text-[#44546F] hover:bg-[#091E420F]'
-                }`}
+                type="submit"
+                className="w-full h-10 bg-[#0C66E4] hover:bg-[#0055CC] text-white rounded text-sm font-medium transition-colors cursor-pointer"
               >
-                <Icon className="w-4 h-4" />
-                <span className="flex-1 text-left">{label}</span>
-                <span className="text-xs rounded-full bg-[#091E420F] px-2 py-0.5 text-[#44546F]">{count}</span>
+                {authView === 'login' ? 'Sign In' : 'Create Account'}
               </button>
-            ))}
-          </nav>
+            </form>
 
-          <div className="mt-6 px-2.5">
-            <p className="text-xs font-semibold text-[#626F86] mb-2">Progress</p>
-            <div className="h-2 rounded-full bg-[#DFE1E6] overflow-hidden">
-              <div
-                className="h-full bg-[#1F845A] transition-[width] duration-300"
-                style={{ width: tasks.length ? `${(completedCount / tasks.length) * 100}%` : '0%' }}
-              />
-            </div>
-            <p className="text-xs text-[#626F86] mt-1.5">{completedCount} of {tasks.length} done</p>
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <main className="flex-1 min-w-0 px-6 py-6 max-w-5xl">
-
-          {!isBackendOnline && (
-            <div className="mb-5 flex items-start gap-3 rounded border border-[#F5CD47] bg-[#FFF7D6] px-4 py-3 text-sm" role="status">
-              <AlertTriangle className="w-4 h-4 mt-0.5 text-[#946F00] shrink-0" />
-              <p className="flex-1">
-                <span className="font-semibold">Can't reach the server.</span>{' '}
-                Showing sample tasks. Changes stay in this browser until the Spring Boot backend is running.
-              </p>
-              <button
-                onClick={fetchTasks}
-                className="shrink-0 h-7 px-2.5 rounded text-xs font-semibold text-[#172B4D] hover:bg-[#091E4214] cursor-pointer"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <p className="text-xs text-[#626F86] mb-1">Tasks / {filterTitle}</p>
-              <h1 className="text-2xl font-semibold">{filterTitle}</h1>
-              {!isFirstLoad && (
-                <p className="text-sm text-[#626F86] mt-1">
-                  {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
-                  {searchQuery && ` matching "${searchQuery}"`}
+            <div className="mt-6 text-center text-xs text-[#626F86]">
+              {authView === 'login' ? (
+                <p>
+                  Don't have an account?{' '}
+                  <button onClick={() => setAuthView('register')} className="text-[#0C66E4] font-medium hover:underline cursor-pointer">
+                    Sign up
+                  </button>
+                </p>
+              ) : (
+                <p>
+                  Already have an account?{' '}
+                  <button onClick={() => setAuthView('login')} className="text-[#0C66E4] font-medium hover:underline cursor-pointer">
+                    Sign in
+                  </button>
                 </p>
               )}
             </div>
-
-            {/* Filter tabs for small screens (sidebar is hidden) */}
-            <div className="md:hidden flex rounded border border-[#DFE1E6] bg-white overflow-hidden">
-              {['ALL', 'PENDING', 'COMPLETED'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setFilter(tab)}
-                  className={`px-3 h-8 text-xs font-medium cursor-pointer ${
-                    filter === tab ? 'bg-[#E9F2FF] text-[#0C66E4]' : 'text-[#44546F]'
-                  }`}
-                >
-                  {tab.charAt(0) + tab.slice(1).toLowerCase()}
-                </button>
-              ))}
-            </div>
           </div>
+        </div>
+      ) : (
+        <div className="min-h-screen flex flex-col bg-[#F7F8F9] text-[#172B4D]">
 
-          {/* Task list */}
-          <div className="bg-white border border-[#DFE1E6] rounded-md overflow-hidden">
-            <div className="hidden sm:grid grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 h-10 items-center border-b border-[#DFE1E6] bg-[#F7F8F9] text-xs font-semibold text-[#626F86]">
-              <span />
-              <span>Key</span>
-              <span>Summary</span>
-              <span>Status</span>
-              <span className="text-right">Actions</span>
+          {/* Demo Mode Banner */}
+          {isDemoMode && (
+            <div className="bg-[#E9F2FF] border-b border-[#0C66E433] px-4 py-2 text-xs text-[#0C66E4] flex items-center justify-between font-medium">
+              <span>💡 <strong>Demo Mode:</strong> You are testing an interactive sandbox. Changes won't affect live production data.</span>
+              <a href="https://github.com/vnclrd/woodworks" target="_blank" rel="noreferrer" className="underline hover:text-[#0055CC]">View Source</a>
+            </div>
+          )}
+
+          {/* Top navigation */}
+          <header className="h-14 bg-white border-b border-[#DFE1E6] flex items-center gap-4 px-4 sticky top-0 z-20">
+            <div className="flex items-center gap-2.5 w-52 shrink-0">
+              <div className="w-8 h-8 rounded bg-[#0C66E4] text-white flex items-center justify-center text-sm font-bold">
+                W
+              </div>
+              <span className="font-semibold text-[15px]">WoodWorks</span>
             </div>
 
-            {isFirstLoad ? (
-              <ul className="divide-y divide-[#DFE1E6]" aria-busy="true" aria-label="Loading tasks">
-                {[0, 1, 2].map((i) => (
-                  <li key={i} className="px-4 py-4 flex items-center gap-3 animate-pulse">
-                    <div className="w-5 h-5 rounded-full bg-[#DFE1E6]" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-3.5 w-1/3 rounded bg-[#DFE1E6]" />
-                      <div className="h-3 w-1/2 rounded bg-[#EFF1F3]" />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : filteredTasks.length === 0 ? (
-              <div className="py-14 text-center">
-                <p className="font-semibold">
-                  {tasks.length === 0 ? 'No tasks yet' : 'No tasks match this view'}
-                </p>
-                <p className="text-sm text-[#626F86] mt-1">
-                  {tasks.length === 0
-                    ? 'Add your first task below or use Create.'
-                    : 'Clear the search or switch filters to see more.'}
-                </p>
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#626F86]" />
+              <input
+                type="text"
+                aria-label="Search tasks"
+                placeholder="Search tasks"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-9 bg-white border-2 border-[#DFE1E6] hover:bg-[#F7F8F9] rounded pl-9 pr-9 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-[#626F86] hover:bg-[#091E420F] cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={fetchTasks}
+                title="Refresh tasks"
+                aria-label="Refresh tasks"
+                className="h-9 w-9 flex items-center justify-center rounded text-[#44546F] hover:bg-[#091E420F] transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={openCreateModal}
+                className="h-9 flex items-center gap-1.5 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Create
+              </button>
+              {!isDemoMode && (
+                <button
+                  onClick={handleLogout}
+                  title="Sign out"
+                  className="h-9 px-3 text-xs font-medium text-[#44546F] hover:bg-[#091E420F] rounded transition-colors cursor-pointer"
+                >
+                  Logout
+                </button>
+              )}
+            </div>
+          </header>
+
+          <div className="flex flex-1">
+
+            {/* Sidebar */}
+            <aside className="hidden md:block w-64 shrink-0 bg-white border-r border-[#DFE1E6] p-3">
+              <div className="flex items-center gap-3 px-2 py-3 mb-2">
+                <div className="w-9 h-9 rounded bg-[#E9F2FF] text-[#0C66E4] flex items-center justify-center">
+                  <SquareCheckBig className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">WoodWorks Tasks</p>
+                  <p className="text-xs text-[#626F86]">Task management</p>
+                </div>
               </div>
-            ) : (
-              <ul className="divide-y divide-[#DFE1E6]">
-                {filteredTasks.map((task) => (
-                  <li
-                    key={task.id}
-                    className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 py-3 items-center hover:bg-[#F7F8F9] transition-colors group"
+
+              <nav className="space-y-0.5" aria-label="Task filters">
+                {navItems.map(({ key, label, icon: Icon, count }) => (
+                  <button
+                    key={key}
+                    onClick={() => setFilter(key)}
+                    aria-current={filter === key ? 'page' : undefined}
+                    className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded text-sm transition-colors cursor-pointer ${
+                      filter === key
+                        ? 'bg-[#E9F2FF] text-[#0C66E4] font-semibold'
+                        : 'text-[#44546F] hover:bg-[#091E420F]'
+                    }`}
                   >
+                    <Icon className="w-4 h-4" />
+                    <span className="flex-1 text-left">{label}</span>
+                    <span className="text-xs rounded-full bg-[#091E420F] px-2 py-0.5 text-[#44546F]">{count}</span>
+                  </button>
+                ))}
+              </nav>
+
+              <div className="mt-6 px-2.5">
+                <p className="text-xs font-semibold text-[#626F86] mb-2">Progress</p>
+                <div className="h-2 rounded-full bg-[#DFE1E6] overflow-hidden">
+                  <div
+                    className="h-full bg-[#1F845A] transition-[width] duration-300"
+                    style={{ width: tasks.length ? `${(completedCount / tasks.length) * 100}%` : '0%' }}
+                  />
+                </div>
+                <p className="text-xs text-[#626F86] mt-1.5">{completedCount} of {tasks.length} done</p>
+              </div>
+            </aside>
+
+            {/* Main content */}
+            <main className="flex-1 min-w-0 px-6 py-6 max-w-5xl">
+
+              {!isBackendOnline && (
+                <div className="mb-5 flex items-start gap-3 rounded border border-[#F5CD47] bg-[#FFF7D6] px-4 py-3 text-sm" role="status">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 text-[#946F00] shrink-0" />
+                  <p className="flex-1">
+                    <span className="font-semibold">Can't reach the server.</span>{' '}
+                    Showing sample tasks. Changes stay in this browser until the Spring Boot backend is running.
+                  </p>
+                  <button
+                    onClick={fetchTasks}
+                    className="shrink-0 h-7 px-2.5 rounded text-xs font-semibold text-[#172B4D] hover:bg-[#091E4214] cursor-pointer"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-end justify-between mb-4">
+                <div>
+                  <p className="text-xs text-[#626F86] mb-1">Tasks / {filterTitle}</p>
+                  <h1 className="text-2xl font-semibold">{filterTitle}</h1>
+                  {!isFirstLoad && (
+                    <p className="text-sm text-[#626F86] mt-1">
+                      {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
+                      {searchQuery && ` matching "${searchQuery}"`}
+                    </p>
+                  )}
+                </div>
+
+                {/* Filter tabs for small screens (sidebar is hidden) */}
+                <div className="md:hidden flex rounded border border-[#DFE1E6] bg-white overflow-hidden">
+                  {['ALL', 'PENDING', 'COMPLETED'].map((tab) => (
                     <button
-                      onClick={() => toggleComplete(task)}
-                      aria-label={task.completed ? 'Mark as to do' : 'Mark as done'}
-                      className="text-[#626F86] hover:text-[#1F845A] transition-colors cursor-pointer"
-                    >
-                      {task.completed ? (
-                        <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
-                      ) : (
-                        <Circle className="w-5 h-5" />
-                      )}
-                    </button>
-
-                    <span className="hidden sm:block text-xs text-[#626F86] font-medium">WW-{task.id}</span>
-
-                    {/* Clicking the summary opens the task for editing */}
-                    <button
-                      onClick={() => openEditModal(task)}
-                      className="min-w-0 text-left cursor-pointer"
-                    >
-                      <p className={`text-sm font-medium truncate hover:underline ${task.completed ? 'line-through text-[#626F86]' : ''}`}>
-                        {task.title}
-                      </p>
-                      {task.description && (
-                        <p className="text-xs text-[#626F86] mt-0.5 truncate">{task.description}</p>
-                      )}
-                    </button>
-
-                    <span
-                      className={`hidden sm:inline-flex justify-self-start items-center px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase ${
-                        task.completed
-                          ? 'bg-[#DCFFF1] text-[#216E4E]'
-                          : 'bg-[#DFE1E6] text-[#44546F]'
+                      key={tab}
+                      onClick={() => setFilter(tab)}
+                      className={`px-3 h-8 text-xs font-medium cursor-pointer ${
+                        filter === tab ? 'bg-[#E9F2FF] text-[#0C66E4]' : 'text-[#44546F]'
                       }`}
                     >
-                      {task.completed ? 'Done' : 'To do'}
-                    </span>
+                      {tab.charAt(0) + tab.slice(1).toLowerCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                    <div className="flex items-center justify-end gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => openEditModal(task)}
-                        aria-label="Edit task"
-                        className="p-1.5 rounded text-[#44546F] hover:bg-[#091E4224] cursor-pointer"
+              {/* Task list */}
+              <div className="bg-white border border-[#DFE1E6] rounded-md overflow-hidden">
+                <div className="hidden sm:grid grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 h-10 items-center border-b border-[#DFE1E6] bg-[#F7F8F9] text-xs font-semibold text-[#626F86]">
+                  <span />
+                  <span>Key</span>
+                  <span>Summary</span>
+                  <span>Status</span>
+                  <span className="text-right">Actions</span>
+                </div>
+
+                {isFirstLoad ? (
+                  <ul className="divide-y divide-[#DFE1E6]" aria-busy="true" aria-label="Loading tasks">
+                    {[0, 1, 2].map((i) => (
+                      <li key={i} className="px-4 py-4 flex items-center gap-3 animate-pulse">
+                        <div className="w-5 h-5 rounded-full bg-[#DFE1E6]" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3.5 w-1/3 rounded bg-[#DFE1E6]" />
+                          <div className="h-3 w-1/2 rounded bg-[#EFF1F3]" />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : filteredTasks.length === 0 ? (
+                  <div className="py-14 text-center">
+                    <p className="font-semibold">
+                      {tasks.length === 0 ? 'No tasks yet' : 'No tasks match this view'}
+                    </p>
+                    <p className="text-sm text-[#626F86] mt-1">
+                      {tasks.length === 0
+                        ? 'Add your first task below or use Create.'
+                        : 'Clear the search or switch filters to see more.'}
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-[#DFE1E6]">
+                    {filteredTasks.map((task) => (
+                      <li
+                        key={task.id}
+                        className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 py-3 items-center hover:bg-[#F7F8F9] transition-colors group"
                       >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setTaskToDelete(task)}
-                        aria-label="Delete task"
-                        className="p-1.5 rounded text-[#44546F] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+                        <button
+                          onClick={() => toggleComplete(task)}
+                          aria-label={task.completed ? 'Mark as to do' : 'Mark as done'}
+                          className="text-[#626F86] hover:text-[#1F845A] transition-colors cursor-pointer"
+                        >
+                          {task.completed ? (
+                            <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
+                          ) : (
+                            <Circle className="w-5 h-5" />
+                          )}
+                        </button>
 
-            {/* Quick add row */}
-            {!isFirstLoad && (
-              <form
-                onSubmit={handleQuickAdd}
-                className="flex items-center gap-3 px-4 h-12 border-t border-[#DFE1E6] bg-[#F7F8F9] focus-within:bg-white"
-              >
-                <Plus className="w-5 h-5 text-[#626F86] shrink-0" />
-                <input
-                  type="text"
-                  aria-label="Task summary"
-                  placeholder="Create a task and press Enter"
-                  value={quickTitle}
-                  onChange={(e) => setQuickTitle(e.target.value)}
-                  className="flex-1 bg-transparent text-sm placeholder-[#626F86] focus:outline-none"
-                />
-              </form>
-            )}
-          </div>
-        </main>
-      </div>
+                        <span className="hidden sm:block text-xs text-[#626F86] font-medium">WW-{task.id}</span>
 
-      {/* Create / Edit modal */}
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-24 bg-[#091E428A]"
-          onClick={closeModal}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={isEditing ? 'Edit task' : 'Create task'}
-            className="bg-white rounded-md w-full max-w-lg shadow-[0_8px_12px_#091E4226,0_0_1px_#091E424F]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 pt-5 pb-2">
-              <div>
-                {isEditing && <p className="text-xs text-[#626F86] mb-0.5">WW-{currentTask.id}</p>}
-                <h2 className="text-xl font-semibold">{isEditing ? 'Edit task' : 'Create task'}</h2>
+                        {/* Clicking the summary opens the task for editing */}
+                        <button
+                          onClick={() => openEditModal(task)}
+                          className="min-w-0 text-left cursor-pointer"
+                        >
+                          <p className={`text-sm font-medium truncate hover:underline ${task.completed ? 'line-through text-[#626F86]' : ''}`}>
+                            {task.title}
+                          </p>
+                          {task.description && (
+                            <p className="text-xs text-[#626F86] mt-0.5 truncate">{task.description}</p>
+                          )}
+                        </button>
+
+                        <span
+                          className={`hidden sm:inline-flex justify-self-start items-center px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase ${
+                            task.completed
+                              ? 'bg-[#DCFFF1] text-[#216E4E]'
+                              : 'bg-[#DFE1E6] text-[#44546F]'
+                          }`}
+                        >
+                          {task.completed ? 'Done' : 'To do'}
+                        </span>
+
+                        <div className="flex items-center justify-end gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEditModal(task)}
+                            aria-label="Edit task"
+                            className="p-1.5 rounded text-[#44546F] hover:bg-[#091E4224] cursor-pointer"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setTaskToDelete(task)}
+                            aria-label="Delete task"
+                            className="p-1.5 rounded text-[#44546F] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Quick add row */}
+                {!isFirstLoad && (
+                  <form
+                    onSubmit={handleQuickAdd}
+                    className="flex items-center gap-3 px-4 h-12 border-t border-[#DFE1E6] bg-[#F7F8F9] focus-within:bg-white"
+                  >
+                    <Plus className="w-5 h-5 text-[#626F86] shrink-0" />
+                    <input
+                      type="text"
+                      aria-label="Task summary"
+                      placeholder="Create a task and press Enter"
+                      value={quickTitle}
+                      onChange={(e) => setQuickTitle(e.target.value)}
+                      className="flex-1 bg-transparent text-sm placeholder-[#626F86] focus:outline-none"
+                    />
+                  </form>
+                )}
               </div>
-              <button
-                onClick={closeModal}
-                aria-label="Close"
-                className="p-1.5 rounded text-[#44546F] hover:bg-[#091E420F] cursor-pointer"
+            </main>
+          </div>
+
+          {/* Create / Edit modal */}
+          {isModalOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-24 bg-[#091E428A]"
+              onClick={closeModal}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label={isEditing ? 'Edit task' : 'Create task'}
+                className="bg-white rounded-md w-full max-w-lg shadow-[0_8px_12px_#091E4226,0_0_1px_#091E424F]"
+                onClick={(e) => e.stopPropagation()}
               >
-                <X className="w-4 h-4" />
-              </button>
+                <div className="flex items-center justify-between px-6 pt-5 pb-2">
+                  <div>
+                    {isEditing && <p className="text-xs text-[#626F86] mb-0.5">WW-{currentTask.id}</p>}
+                    <h2 className="text-xl font-semibold">{isEditing ? 'Edit task' : 'Create task'}</h2>
+                  </div>
+                  <button
+                    onClick={closeModal}
+                    aria-label="Close"
+                    className="p-1.5 rounded text-[#44546F] hover:bg-[#091E420F] cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveTask} className="px-6 pb-5 space-y-4">
+                  <div>
+                    <label htmlFor="title" className="block text-xs font-semibold text-[#44546F] mb-1">
+                      Summary <span className="text-[#C9372C]">*</span>
+                    </label>
+                    <input
+                      id="title"
+                      type="text"
+                      required
+                      autoFocus
+                      placeholder="What needs to be done?"
+                      value={currentTask.title}
+                      onChange={(e) => setCurrentTask({ ...currentTask, title: e.target.value })}
+                      className="w-full h-10 bg-[#F7F8F9] border-2 border-[#DFE1E6] hover:bg-[#EFF1F3] rounded px-3 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="description" className="block text-xs font-semibold text-[#44546F] mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      id="description"
+                      rows={4}
+                      placeholder="Add details about this task"
+                      value={currentTask.description || ''}
+                      onChange={(e) => setCurrentTask({ ...currentTask, description: e.target.value })}
+                      className="w-full bg-[#F7F8F9] border-2 border-[#DFE1E6] hover:bg-[#EFF1F3] rounded px-3 py-2 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="completed"
+                      checked={currentTask.completed}
+                      onChange={(e) => setCurrentTask({ ...currentTask, completed: e.target.checked })}
+                      className="w-4 h-4 rounded-sm accent-[#0C66E4] cursor-pointer"
+                    />
+                    <label htmlFor="completed" className="text-sm cursor-pointer">
+                      Mark as completed
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="h-9 px-3 rounded text-sm font-medium text-[#44546F] hover:bg-[#091E420F] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSaving || !currentTask.title.trim()}
+                      className="h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer disabled:bg-[#091E420F] disabled:text-[#8993A4] disabled:cursor-not-allowed"
+                    >
+                      {isSaving ? 'Saving...' : isEditing ? 'Save changes' : 'Create'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
+          )}
 
-            <form onSubmit={handleSaveTask} className="px-6 pb-5 space-y-4">
-              <div>
-                <label htmlFor="title" className="block text-xs font-semibold text-[#44546F] mb-1">
-                  Summary <span className="text-[#C9372C]">*</span>
-                </label>
-                <input
-                  id="title"
-                  type="text"
-                  required
-                  autoFocus
-                  placeholder="What needs to be done?"
-                  value={currentTask.title}
-                  onChange={(e) => setCurrentTask({ ...currentTask, title: e.target.value })}
-                  className="w-full h-10 bg-[#F7F8F9] border-2 border-[#DFE1E6] hover:bg-[#EFF1F3] rounded px-3 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="description" className="block text-xs font-semibold text-[#44546F] mb-1">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  rows={4}
-                  placeholder="Add details about this task"
-                  value={currentTask.description || ''}
-                  onChange={(e) => setCurrentTask({ ...currentTask, description: e.target.value })}
-                  className="w-full bg-[#F7F8F9] border-2 border-[#DFE1E6] hover:bg-[#EFF1F3] rounded px-3 py-2 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white resize-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="completed"
-                  checked={currentTask.completed}
-                  onChange={(e) => setCurrentTask({ ...currentTask, completed: e.target.checked })}
-                  className="w-4 h-4 rounded-sm accent-[#0C66E4] cursor-pointer"
-                />
-                <label htmlFor="completed" className="text-sm cursor-pointer">
-                  Mark as completed
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="h-9 px-3 rounded text-sm font-medium text-[#44546F] hover:bg-[#091E420F] cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving || !currentTask.title.trim()}
-                  className="h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer disabled:bg-[#091E420F] disabled:text-[#8993A4] disabled:cursor-not-allowed"
-                >
-                  {isSaving ? 'Saving...' : isEditing ? 'Save changes' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete confirmation */}
-      {taskToDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-32 bg-[#091E428A]"
-          onClick={() => setTaskToDelete(null)}
-        >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-label="Delete task"
-            className="bg-white rounded-md w-full max-w-sm p-6 shadow-[0_8px_12px_#091E4226,0_0_1px_#091E424F]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-semibold">Delete WW-{taskToDelete.id}?</h2>
-            <p className="text-sm text-[#44546F] mt-2 wrap-break-words">
-              "{taskToDelete.title}" will be permanently deleted. This can't be undone.
-            </p>
-            <div className="flex items-center justify-end gap-2 mt-6">
-              <button
-                onClick={() => setTaskToDelete(null)}
-                autoFocus
-                className="h-9 px-3 rounded text-sm font-medium text-[#44546F] hover:bg-[#091E420F] cursor-pointer"
+          {/* Delete confirmation */}
+          {taskToDelete && (
+            <div
+              className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-32 bg-[#091E428A]"
+              onClick={() => setTaskToDelete(null)}
+            >
+              <div
+                role="alertdialog"
+                aria-modal="true"
+                aria-label="Delete task"
+                className="bg-white rounded-md w-full max-w-sm p-6 shadow-[0_8px_12px_#091E4226,0_0_1px_#091E424F]"
+                onClick={(e) => e.stopPropagation()}
               >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="h-9 px-3 rounded bg-[#C9372C] hover:bg-[#AE2E24] text-white text-sm font-medium transition-colors cursor-pointer"
-              >
-                Delete
-              </button>
+                <h2 className="text-lg font-semibold">Delete WW-{taskToDelete.id}?</h2>
+                <p className="text-sm text-[#44546F] mt-2 wrap-break-words">
+                  "{taskToDelete.title}" will be permanently deleted. This can't be undone.
+                </p>
+                <div className="flex items-center justify-end gap-2 mt-6">
+                  <button
+                    onClick={() => setTaskToDelete(null)}
+                    autoFocus
+                    className="h-9 px-3 rounded text-sm font-medium text-[#44546F] hover:bg-[#091E420F] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    className="h-9 px-3 rounded bg-[#C9372C] hover:bg-[#AE2E24] text-white text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Toast */}
-      {toast && (
-        <div
-          role="status"
-          className={`fixed bottom-6 left-6 z-60 max-w-sm rounded px-4 py-3 text-sm font-medium text-white shadow-[0_8px_12px_#091E4226] ${
-            toast.type === 'error' ? 'bg-[#C9372C]' : 'bg-[#172B4D]'
-          }`}
-        >
-          {toast.message}
+          {/* Toast */}
+          {toast && (
+            <div
+              role="status"
+              className={`fixed bottom-6 left-6 z-60 max-w-sm rounded px-4 py-3 text-sm font-medium text-white shadow-[0_8px_12px_#091E4226] ${
+                toast.type === 'error' ? 'bg-[#C9372C]' : 'bg-[#172B4D]'
+              }`}
+            >
+              {toast.message}
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </>
   );
 }
