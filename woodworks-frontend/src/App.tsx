@@ -49,6 +49,8 @@ export default function App() {
 
   const showToast = (message: string, type: Toast['type'] = 'success') => setToast({ message, type });
 
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -336,12 +338,29 @@ export default function App() {
   }, [isModalOpen, taskToDelete]);
 
   // Filter & Search logic
+  // Filter & Sort logic
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
     if (filter === 'PENDING') return matchesSearch && !task.completed;
     if (filter === 'COMPLETED') return matchesSearch && task.completed;
     return matchesSearch;
+  }).sort((a, b) => {
+    // Rule 1: Unfinished tasks always come before completed tasks
+    if (a.completed !== b.completed) {
+      return a.completed ? 1 : -1;
+    }
+
+    // Rule 2 & 3: If both are unfinished or both are completed, sort by creation date (ID)
+    // Higher ID = created later (Newest)
+    const idA = a.id || 0;
+    const idB = b.id || 0;
+
+    if (sortOrder === 'newest') {
+      return idB - idA; // Latest at the top
+    } else {
+      return idA - idB; // Oldest at the top
+    }
   });
 
   const completedCount = tasks.filter(t => t.completed).length;
@@ -469,6 +488,15 @@ export default function App() {
                 </button>
               )}
             </div>
+
+            {/* Sorting Toggle Button */}
+            <button
+              onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+              title="Toggle creation date sort"
+              className="h-9 px-3 flex items-center gap-1.5 rounded border border-[#DFE1E6] bg-white text-xs font-medium text-[#44546F] hover:bg-[#091E420F] transition-colors cursor-pointer shrink-0"
+            >
+              <span>Sort: {sortOrder === 'newest' ? 'Newest First' : 'Oldest First'}</span>
+            </button>
 
             <div className="ml-auto flex items-center gap-2">
               <button

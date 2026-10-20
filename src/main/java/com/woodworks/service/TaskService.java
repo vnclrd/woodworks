@@ -8,6 +8,7 @@ import com.woodworks.repository.TaskRepository;
 import com.woodworks.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -51,6 +52,11 @@ public class TaskService {
         Task task = new Task(requestDto.getTitle(), requestDto.getDescription(), requestDto.isCompleted());
         task.setUser(user);
         
+        // Set completedAt if created as already completed
+        if (requestDto.isCompleted()) {
+            task.setCompletedAt(LocalDateTime.now());
+        }
+        
         Task savedTask = taskRepository.save(task);
         return mapToResponseDto(savedTask);
     }
@@ -66,6 +72,13 @@ public class TaskService {
 
         task.setTitle(requestDto.getTitle());
         task.setDescription(requestDto.getDescription());
+        
+        // Handle completedAt timestamp toggle
+        if (requestDto.isCompleted() && !task.isCompleted()) {
+            task.setCompletedAt(LocalDateTime.now());
+        } else if (!requestDto.isCompleted()) {
+            task.setCompletedAt(null);
+        }
         task.setCompleted(requestDto.isCompleted());
 
         Task updatedTask = taskRepository.save(task);

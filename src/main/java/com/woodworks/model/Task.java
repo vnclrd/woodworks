@@ -1,5 +1,7 @@
 package com.woodworks.model;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -28,6 +30,8 @@ public class Task {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "user_id", nullable = false)
   private User user;
+
+  private LocalDateTime completedAt;
 
   // 3. Default constructor (Required by JPA)
   public Task() {}
@@ -78,5 +82,13 @@ public class Task {
 
   public void setUser(User user) {
     this.user = user;
+  }
+
+  public LocalDateTime getCompletedAt() {
+    return completedAt;
+  }
+
+  public void setCompletedAt(LocalDateTime completedAt) {
+    this.completedAt = completedAt;
   }
 }
