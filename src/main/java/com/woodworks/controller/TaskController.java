@@ -1,10 +1,9 @@
 package com.woodworks.controller;
 
-import com.woodworks.model.Task;
+import com.woodworks.dto.TaskRequestDto;
+import com.woodworks.dto.TaskResponseDto;
 import com.woodworks.service.TaskService;
-
 import jakarta.validation.Valid;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,45 +15,38 @@ import java.util.List;
 // 1. Class declaration
 public class TaskController {
 
-    // 2. Private method
+    // 2. Private fields
     private final TaskService taskService;
 
-    // 3. Constructor
-    // Constructor Injection
+    // 3. Constructors
     public TaskController(TaskService taskService) {
         this.taskService = taskService;
     }
 
     // 4. Behavioral Methods
-    // GET /api/tasks - Fetch all tasks
     @GetMapping
-    public List<Task> getAllTasks() {
+    public List<TaskResponseDto> getAllTasks() {
         return taskService.getAllTasks();
     }
 
-    // GET /api/tasks/{id} - Fetch a single task by ID
     @GetMapping("/{id}")
-    public ResponseEntity<Task> getTaskById(@PathVariable Long id) {
-        return taskService.getTaskById(id)
-                .map(task -> ResponseEntity.ok(task))
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<TaskResponseDto> getTaskById(@PathVariable Long id) {
+        TaskResponseDto task = taskService.getTaskById(id);
+        return ResponseEntity.ok(task);
     }
 
-    // POST /api/tasks - Create a new task
     @PostMapping
-    public ResponseEntity<Task> createTask(@Valid @RequestBody Task task) {
-        Task createdTask = taskService.createTask(task);
+    public ResponseEntity<TaskResponseDto> createTask(@Valid @RequestBody TaskRequestDto requestDto) {
+        TaskResponseDto createdTask = taskService.createTask(requestDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdTask);
     }
 
-    // PUT /api/tasks/{id} - Update an existing task
     @PutMapping("/{id}")
-    public ResponseEntity<Task> updateTask(@PathVariable Long id, @Valid @RequestBody Task taskDetails) {
-        Task updatedTask = taskService.updateTask(id, taskDetails);
+    public ResponseEntity<TaskResponseDto> updateTask(@PathVariable Long id, @Valid @RequestBody TaskRequestDto requestDto) {
+        TaskResponseDto updatedTask = taskService.updateTask(id, requestDto);
         return ResponseEntity.ok(updatedTask);
     }
 
-    // DELETE /api/tasks/{id} - Delete a task
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
         taskService.deleteTask(id);
