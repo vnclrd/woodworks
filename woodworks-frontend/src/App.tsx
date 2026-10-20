@@ -4,7 +4,10 @@ import {
   RefreshCw, ListTodo, CheckSquare, Clock, X, AlertTriangle, SquareCheckBig
 } from 'lucide-react';
 
-const BASE_URL = (import.meta as any).env.VITE_API_BASE_URL;
+const urlParams = new URLSearchParams(window.location.search);
+const isDemoMode = urlParams.get('demo') === 'true' || (import.meta as any).env.VITE_DEMO_MODE === 'true';
+
+const BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'https://woodworks-backend-75805996486.asia-southeast1.run.app';
 const API_BASE_URL = `${BASE_URL.replace(/\/$/, '')}/api/tasks`;
 
 interface Task {
@@ -53,6 +56,21 @@ export default function App() {
 
   const fetchTasks = async () => {
     setLoading(true);
+    if (isDemoMode) {
+      // Demo mode: use local mock data immediately
+      setTimeout(() => {
+        setTasks([
+          { id: 1, title: 'Review Q4 Cloud Architecture', description: 'Analyze GCP Cloud Run scaling parameters', completed: true },
+          { id: 2, title: 'Implement AI Task Assistant', description: 'Draft natural language CRUD prompt handlers', completed: false },
+          { id: 3, title: 'Optimize PostgreSQL Queries', description: 'Review Neon connection pooler performance', completed: false }
+        ]);
+        setIsBackendOnline(true);
+        setLoading(false);
+      }, 300);
+      return;
+    }
+
+    // Normal live backend fetching...
     try {
       const response = await fetch(API_BASE_URL);
       if (!response.ok) throw new Error('Backend offline');
@@ -62,7 +80,6 @@ export default function App() {
     } catch (error) {
       console.warn('Spring Boot backend not detected. Switching to offline mock mode.');
       setIsBackendOnline(false);
-      // Fallback local mock data if backend isn't running yet
       if (tasks.length === 0) {
         setTasks([
           { id: 1, title: 'Configure PostgreSQL Container', description: 'Docker compose setup complete', completed: true },
@@ -78,6 +95,17 @@ export default function App() {
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentTask.title.trim() || isSaving) return;
+
+    if (isDemoMode) {
+      if (isEditing) {
+        setTasks(tasks.map(t => t.id === currentTask.id ? currentTask : t));
+      } else {
+        setTasks([...tasks, { ...currentTask, id: Date.now() }]);
+      }
+      closeModal();
+      showToast(isEditing ? 'Task updated (Demo Mode)' : 'Task created (Demo Mode)');
+      return;
+    }
 
     if (isBackendOnline) {
       setIsSaving(true);
@@ -126,6 +154,13 @@ export default function App() {
     const title = quickTitle.trim();
     if (!title) return;
 
+    if (isDemoMode) {
+      setTasks([...tasks, { id: Date.now(), title, description: '', completed: false }]);
+      setQuickTitle('');
+      showToast('Task created (Demo Mode)');
+      return;
+    }
+
     if (isBackendOnline) {
       try {
         const response = await fetch(API_BASE_URL, {
@@ -152,6 +187,13 @@ export default function App() {
   };
 
   const handleDeleteTask = async (id: number | null) => {
+    if (isDemoMode) {
+      setTasks(tasks.filter(t => t.id !== id));
+      showToast('Task deleted (Demo Mode)');
+      return;
+    }
+
+    // Normal backend delete logic...
     if (isBackendOnline) {
       try {
         const response = await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' });
@@ -162,17 +204,19 @@ export default function App() {
           showToast("Couldn't delete the task. Try again.", 'error');
         }
       } catch (err) {
-        console.error('Failed to delete task', err);
-        showToast("Couldn't reach the server. The task wasn't deleted.", 'error');
+        showToast("Couldn't reach the server.", 'error');
       }
-    } else {
-      setTasks(tasks.filter(t => t.id !== id));
-      showToast('Task deleted');
     }
   };
 
   const toggleComplete = async (task: Task) => {
     const updated = { ...task, completed: !task.completed };
+    
+    if (isDemoMode) {
+      setTasks(tasks.map(t => t.id === task.id ? updated : t));
+      return;
+    }
+
     if (isBackendOnline) {
       try {
         const response = await fetch(`${API_BASE_URL}/${task.id}`, {
@@ -252,6 +296,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F8F9] text-[#172B4D]">
+
+      {/* Demo Mode Banner */}
+      {isDemoMode && (
+        <div className="bg-[#E9F2FF] border-b border-[#0C66E433] px-4 py-2 text-xs text-[#0C66E4] flex items-center justify-between font-medium">
+          <span>💡 <strong>Demo Mode:</strong> You are testing an interactive sandbox. Changes won't affect live production data.</span>
+          <a href="https://github.com" target="_blank" rel="noreferrer" className="underline hover:text-[#0055CC]">View Source</a>
+        </div>
+      )}
 
       {/* Top navigation */}
       <header className="h-14 bg-white border-b border-[#DFE1E6] flex items-center gap-4 px-4 sticky top-0 z-20">
