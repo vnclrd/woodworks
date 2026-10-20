@@ -301,7 +301,7 @@ export default function App() {
       {isDemoMode && (
         <div className="bg-[#E9F2FF] border-b border-[#0C66E433] px-4 py-2 text-xs text-[#0C66E4] flex items-center justify-between font-medium">
           <span>💡 <strong>Demo Mode:</strong> You are testing an interactive sandbox. Changes won't affect live production data.</span>
-          <a href="https://github.com" target="_blank" rel="noreferrer" className="underline hover:text-[#0055CC]">View Source</a>
+          <a href="https://github.com/vnclrd/woodworks" target="_blank" rel="noreferrer" className="underline hover:text-[#0055CC]">View Source</a>
         </div>
       )}
 
