@@ -1,0 +1,459 @@
+import React, { useState, useEffect } from 'react';
+import {
+  CheckCircle2, Circle, Plus, Trash2, Pencil, Search,
+  RefreshCw, ListTodo, CheckSquare, Clock, X, AlertTriangle, SquareCheckBig
+} from 'lucide-react';
+
+const API_BASE_URL = 'http://localhost:8080/api/tasks';
+
+interface Task {
+  id: number | null;
+  title: string;
+  description: string;
+  completed: boolean;
+}
+
+export default function App() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [filter, setFilter] = useState('ALL'); // ALL, PENDING, COMPLETED
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isBackendOnline, setIsBackendOnline] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentTask, setCurrentTask] = useState<Task>({ id: null, title: '', description: '', completed: false });
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Fetch tasks on mount
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(API_BASE_URL);
+      if (!response.ok) throw new Error('Backend offline');
+      const data = await response.json();
+      setTasks(data);
+      setIsBackendOnline(true);
+    } catch (error) {
+      console.warn('Spring Boot backend not detected. Switching to offline mock mode.');
+      setIsBackendOnline(false);
+      // Fallback local mock data if backend isn't running yet
+      if (tasks.length === 0) {
+        setTasks([
+          { id: 1, title: 'Configure PostgreSQL Container', description: 'Docker compose setup complete', completed: true },
+          { id: 2, title: 'Build Spring Boot REST API', description: 'Implement controllers, services, and DTOs', completed: true },
+          { id: 3, title: 'Connect React Frontend', description: 'Wire up UI with Tailwind CSS', completed: false }
+        ]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentTask.title.trim()) return;
+
+    if (isBackendOnline) {
+      try {
+        const method = isEditing ? 'PUT' : 'POST';
+        const url = isEditing ? `${API_BASE_URL}/${currentTask.id}` : API_BASE_URL;
+
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: currentTask.title,
+            description: currentTask.description,
+            completed: currentTask.completed
+          })
+        });
+
+        if (response.ok) {
+          fetchTasks();
+          closeModal();
+        }
+      } catch (err) {
+        console.error('Failed to save task to backend', err);
+      }
+    } else {
+      // Offline fallback behavior
+      if (isEditing) {
+        setTasks(tasks.map(t => t.id === currentTask.id ? currentTask : t));
+      } else {
+        setTasks([...tasks, { ...currentTask, id: Date.now() }]);
+      }
+      closeModal();
+    }
+  };
+
+  const handleDeleteTask = async (id: number | null) => {
+    if (isBackendOnline) {
+      try {
+        await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' });
+        setTasks(tasks.filter(t => t.id !== id));
+      } catch (err) {
+        console.error('Failed to delete task', err);
+      }
+    } else {
+      setTasks(tasks.filter(t => t.id !== id));
+    }
+  };
+
+  const toggleComplete = async (task: Task) => {
+    const updated = { ...task, completed: !task.completed };
+    if (isBackendOnline) {
+      try {
+        await fetch(`${API_BASE_URL}/${task.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated)
+        });
+        setTasks(tasks.map(t => t.id === task.id ? updated : t));
+      } catch (err) {
+        console.error('Failed to update status', err);
+      }
+    } else {
+      setTasks(tasks.map(t => t.id === task.id ? updated : t));
+    }
+  };
+
+  const openCreateModal = () => {
+    setCurrentTask({ id: null, title: '', description: '', completed: false });
+    setIsEditing(false);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (task: Task) => {
+    setCurrentTask(task);
+    setIsEditing(true);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setCurrentTask({ id: null, title: '', description: '', completed: false });
+  };
+
+  // Filter & Search logic
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (filter === 'PENDING') return matchesSearch && !task.completed;
+    if (filter === 'COMPLETED') return matchesSearch && task.completed;
+    return matchesSearch;
+  });
+
+  const completedCount = tasks.filter(t => t.completed).length;
+  const pendingCount = tasks.length - completedCount;
+
+  const navItems = [
+    { key: 'ALL', label: 'All tasks', icon: ListTodo, count: tasks.length },
+    { key: 'PENDING', label: 'To do', icon: Clock, count: pendingCount },
+    { key: 'COMPLETED', label: 'Done', icon: CheckSquare, count: completedCount },
+  ];
+
+  const filterTitle = navItems.find(n => n.key === filter)?.label ?? 'All tasks';
+
+  return (
+    <div className="min-h-screen flex flex-col bg-[#F7F8F9] text-[#172B4D]">
+
+      {/* Top navigation */}
+      <header className="h-14 bg-white border-b border-[#DFE1E6] flex items-center gap-4 px-4 sticky top-0 z-20">
+        <div className="flex items-center gap-2.5 w-52 shrink-0">
+          <div className="w-8 h-8 rounded bg-[#0C66E4] text-white flex items-center justify-center text-sm font-bold">
+            W
+          </div>
+          <span className="font-semibold text-[15px]">WoodWorks</span>
+        </div>
+
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#626F86]" />
+          <input
+            type="text"
+            aria-label="Search tasks"
+            placeholder="Search tasks"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-9 bg-white border-2 border-[#DFE1E6] hover:bg-[#F7F8F9] rounded pl-9 pr-3 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white"
+          />
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={fetchTasks}
+            title="Refresh tasks"
+            aria-label="Refresh tasks"
+            className="h-9 w-9 flex items-center justify-center rounded text-[#44546F] hover:bg-[#091E420F] transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="h-9 flex items-center gap-1.5 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Create
+          </button>
+        </div>
+      </header>
+
+      <div className="flex flex-1">
+
+        {/* Sidebar */}
+        <aside className="hidden md:block w-64 shrink-0 bg-white border-r border-[#DFE1E6] p-3">
+          <div className="flex items-center gap-3 px-2 py-3 mb-2">
+            <div className="w-9 h-9 rounded bg-[#E9F2FF] text-[#0C66E4] flex items-center justify-center">
+              <SquareCheckBig className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">WoodWorks Tasks</p>
+              <p className="text-xs text-[#626F86]">Task management</p>
+            </div>
+          </div>
+
+          <nav className="space-y-0.5" aria-label="Task filters">
+            {navItems.map(({ key, label, icon: Icon, count }) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                aria-current={filter === key ? 'page' : undefined}
+                className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded text-sm transition-colors ${
+                  filter === key
+                    ? 'bg-[#E9F2FF] text-[#0C66E4] font-semibold'
+                    : 'text-[#44546F] hover:bg-[#091E420F]'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="flex-1 text-left">{label}</span>
+                <span className="text-xs rounded-full bg-[#091E420F] px-2 py-0.5 text-[#44546F]">{count}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="mt-6 px-2.5">
+            <p className="text-xs font-semibold text-[#626F86] mb-2">Progress</p>
+            <div className="h-2 rounded-full bg-[#DFE1E6] overflow-hidden">
+              <div
+                className="h-full bg-[#1F845A] transition-[width] duration-300"
+                style={{ width: tasks.length ? `${(completedCount / tasks.length) * 100}%` : '0%' }}
+              />
+            </div>
+            <p className="text-xs text-[#626F86] mt-1.5">{completedCount} of {tasks.length} done</p>
+          </div>
+        </aside>
+
+        {/* Main content */}
+        <main className="flex-1 min-w-0 px-6 py-6 max-w-5xl">
+
+          {!isBackendOnline && (
+            <div className="mb-5 flex items-start gap-3 rounded border border-[#F5CD47] bg-[#FFF7D6] px-4 py-3 text-sm" role="status">
+              <AlertTriangle className="w-4 h-4 mt-0.5 text-[#946F00] shrink-0" />
+              <p>
+                <span className="font-semibold">Can't reach the server.</span>{' '}
+                Showing sample tasks. Changes stay in this browser until the Spring Boot backend is running.
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <p className="text-xs text-[#626F86] mb-1">Tasks / {filterTitle}</p>
+              <h1 className="text-2xl font-semibold">{filterTitle}</h1>
+            </div>
+
+            {/* Filter tabs for small screens (sidebar is hidden) */}
+            <div className="md:hidden flex rounded border border-[#DFE1E6] bg-white overflow-hidden">
+              {['ALL', 'PENDING', 'COMPLETED'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setFilter(tab)}
+                  className={`px-3 h-8 text-xs font-medium ${
+                    filter === tab ? 'bg-[#E9F2FF] text-[#0C66E4]' : 'text-[#44546F]'
+                  }`}
+                >
+                  {tab.charAt(0) + tab.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Task list */}
+          <div className="bg-white border border-[#DFE1E6] rounded-md overflow-hidden">
+            <div className="hidden sm:grid grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 h-10 items-center border-b border-[#DFE1E6] bg-[#F7F8F9] text-xs font-semibold text-[#626F86]">
+              <span />
+              <span>Key</span>
+              <span>Summary</span>
+              <span>Status</span>
+              <span className="text-right">Actions</span>
+            </div>
+
+            {filteredTasks.length === 0 ? (
+              <div className="py-16 text-center">
+                <p className="font-semibold">No tasks match this view</p>
+                <p className="text-sm text-[#626F86] mt-1">Clear the search, switch filters, or create a task.</p>
+                <button
+                  onClick={openCreateModal}
+                  className="mt-4 h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors"
+                >
+                  Create task
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y divide-[#DFE1E6]">
+                {filteredTasks.map((task) => (
+                  <li
+                    key={task.id}
+                    className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 py-3 items-center hover:bg-[#F7F8F9] transition-colors group"
+                  >
+                    <button
+                      onClick={() => toggleComplete(task)}
+                      aria-label={task.completed ? 'Mark as to do' : 'Mark as done'}
+                      className="text-[#626F86] hover:text-[#1F845A] transition-colors"
+                    >
+                      {task.completed ? (
+                        <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
+                      ) : (
+                        <Circle className="w-5 h-5" />
+                      )}
+                    </button>
+
+                    <span className="hidden sm:block text-xs text-[#626F86] font-medium">WW-{task.id}</span>
+
+                    <div className="min-w-0">
+                      <p className={`text-sm font-medium truncate ${task.completed ? 'line-through text-[#626F86]' : ''}`}>
+                        {task.title}
+                      </p>
+                      {task.description && (
+                        <p className="text-xs text-[#626F86] mt-0.5 truncate">{task.description}</p>
+                      )}
+                    </div>
+
+                    <span
+                      className={`hidden sm:inline-flex justify-self-start items-center px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase ${
+                        task.completed
+                          ? 'bg-[#DCFFF1] text-[#216E4E]'
+                          : 'bg-[#DFE1E6] text-[#44546F]'
+                      }`}
+                    >
+                      {task.completed ? 'Done' : 'To do'}
+                    </span>
+
+                    <div className="flex items-center justify-end gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEditModal(task)}
+                        aria-label="Edit task"
+                        className="p-1.5 rounded text-[#44546F] hover:bg-[#091E4224]"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTask(task.id)}
+                        aria-label="Delete task"
+                        className="p-1.5 rounded text-[#44546F] hover:bg-[#FFECEB] hover:text-[#C9372C]"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* Create / Edit modal */}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-24 bg-[#091E428A]"
+          onClick={closeModal}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={isEditing ? 'Edit task' : 'Create task'}
+            className="bg-white rounded-md w-full max-w-lg shadow-[0_8px_12px_#091E4226,0_0_1px_#091E424F]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 pt-5 pb-2">
+              <h2 className="text-xl font-semibold">{isEditing ? 'Edit task' : 'Create task'}</h2>
+              <button
+                onClick={closeModal}
+                aria-label="Close"
+                className="p-1.5 rounded text-[#44546F] hover:bg-[#091E420F]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTask} className="px-6 pb-5 space-y-4">
+              <div>
+                <label htmlFor="title" className="block text-xs font-semibold text-[#44546F] mb-1">
+                  Summary <span className="text-[#C9372C]">*</span>
+                </label>
+                <input
+                  id="title"
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="What needs to be done?"
+                  value={currentTask.title}
+                  onChange={(e) => setCurrentTask({ ...currentTask, title: e.target.value })}
+                  className="w-full h-10 bg-[#F7F8F9] border-2 border-[#DFE1E6] hover:bg-[#EFF1F3] rounded px-3 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="description" className="block text-xs font-semibold text-[#44546F] mb-1">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  rows={4}
+                  placeholder="Add details about this task"
+                  value={currentTask.description || ''}
+                  onChange={(e) => setCurrentTask({ ...currentTask, description: e.target.value })}
+                  className="w-full bg-[#F7F8F9] border-2 border-[#DFE1E6] hover:bg-[#EFF1F3] rounded px-3 py-2 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="completed"
+                  checked={currentTask.completed}
+                  onChange={(e) => setCurrentTask({ ...currentTask, completed: e.target.checked })}
+                  className="w-4 h-4 rounded-sm accent-[#0C66E4]"
+                />
+                <label htmlFor="completed" className="text-sm">
+                  Mark as completed
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="h-9 px-3 rounded text-sm font-medium text-[#44546F] hover:bg-[#091E420F]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors"
+                >
+                  {isEditing ? 'Save changes' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
