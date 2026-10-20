@@ -428,7 +428,7 @@ export default function App() {
         <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr] bg-white">
 
           {/* Brand panel (desktop only) */}
-          <div className="hidden lg:flex flex-col justify-between bg-[#0C66E4] text-white p-12">
+          <div className="hidden lg:flex flex-col justify-between bg-[#212529] text-white p-12">
             <div className="flex items-center gap-2.5">
               <img 
                 src="src/assets/WoodWorksLogo.png" 
@@ -467,9 +467,11 @@ export default function App() {
 
               {/* Logo for small screens (brand panel is hidden) */}
               <div className="lg:hidden flex items-center gap-2.5 mb-8">
-                <div className="w-9 h-9 rounded bg-[#0C66E4] text-white flex items-center justify-center font-bold">
-                  W
-                </div>
+                <img 
+                  src="src/assets/WoodWorksLogo.png" 
+                  alt="WoodWorks Logo" 
+                  className="w-10 h-10 rounded-2xl object-contain shadow-sm"
+                />
                 <span className="font-semibold text-lg">WoodWorks</span>
               </div>
 
@@ -558,7 +560,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={isAuthLoading}
-                  className="w-full h-11 flex items-center justify-center gap-2 bg-[#0C66E4] hover:bg-[#0055CC] text-white rounded text-sm font-medium transition-colors cursor-pointer disabled:bg-[#091E420F] disabled:text-[#8993A4] disabled:cursor-not-allowed"
+                  className="w-full h-11 flex items-center justify-center gap-2 bg-[#212529] hover:bg-[#495057] text-white rounded text-sm font-medium transition-colors cursor-pointer disabled:bg-[#091E420F] disabled:text-[#8993A4] disabled:cursor-not-allowed"
                 >
                   {isAuthLoading && <RefreshCw className="w-4 h-4 animate-spin" />}
                   {isAuthLoading
@@ -659,7 +661,7 @@ export default function App() {
               </button>
               <button
                 onClick={openCreateModal}
-                className="h-9 flex items-center gap-1.5 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer"
+                className="h-9 flex items-center gap-1.5 px-3 rounded bg-[#212529] hover:bg-[#495057] text-white text-sm font-medium transition-colors cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 Create
@@ -681,7 +683,7 @@ export default function App() {
             {/* Sidebar */}
             <aside className="hidden md:block w-64 shrink-0 bg-white border-r border-[#DFE1E6] p-3">
               <div className="flex items-center gap-3 px-2 py-3 mb-2">
-                <div className="w-9 h-9 rounded bg-[#E9F2FF] text-[#0C66E4] flex items-center justify-center">
+                <div className="w-9 h-9 rounded bg-[#E9F2FF] text-[#212529] flex items-center justify-center">
                   <SquareCheckBig className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
