@@ -625,7 +625,7 @@ export default function App() {
                   </div>
                 ) : (
                   <ul className="divide-y divide-[#DFE1E6]">
-                    {filteredTasks.map((task) => (
+                    {filteredTasks.map((task, index) => (
                       <li
                         key={task.id}
                         className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 py-3 items-center hover:bg-[#F7F8F9] transition-colors group"
@@ -642,7 +642,7 @@ export default function App() {
                           )}
                         </button>
 
-                        <span className="hidden sm:block text-xs text-[#626F86] font-medium">WW-{task.id}</span>
+                        <span className="hidden sm:block text-xs text-[#626F86] font-medium">WW-{index + 1}</span>
 
                         {/* Clicking the summary opens the task for editing */}
                         <button
