@@ -440,7 +440,9 @@ export default function App() {
 
             <div className="max-w-md">
               <h2 className="text-3xl font-semibold leading-tight">
-                Keep every task moving, from to do to done.
+                Keep every task moving.
+                <br />
+                From <span className="text-[#BF5700] font-bold">to do</span>, to <span className="text-[#BF5700] font-bold">done</span>.
               </h2>
               <ul className="mt-8 space-y-4 text-sm">
                 {[
