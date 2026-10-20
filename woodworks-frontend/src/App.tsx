@@ -13,6 +13,11 @@ interface Task {
   completed: boolean;
 }
 
+interface Toast {
+  message: string;
+  type: 'success' | 'error';
+}
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState('ALL'); // ALL, PENDING, COMPLETED
@@ -25,10 +30,25 @@ export default function App() {
   const [currentTask, setCurrentTask] = useState<Task>({ id: null, title: '', description: '', completed: false });
   const [isEditing, setIsEditing] = useState(false);
 
+  // UI-only states (never sent to the backend)
+  const [isSaving, setIsSaving] = useState(false);
+  const [quickTitle, setQuickTitle] = useState('');
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+
+  const showToast = (message: string, type: Toast['type'] = 'success') => setToast({ message, type });
+
   // Fetch tasks on mount
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -56,9 +76,10 @@ export default function App() {
 
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentTask.title.trim()) return;
+    if (!currentTask.title.trim() || isSaving) return;
 
     if (isBackendOnline) {
+      setIsSaving(true);
       try {
         const method = isEditing ? 'PUT' : 'POST';
         const url = isEditing ? `${API_BASE_URL}/${currentTask.id}` : API_BASE_URL;
@@ -76,9 +97,15 @@ export default function App() {
         if (response.ok) {
           fetchTasks();
           closeModal();
+          showToast(isEditing ? 'Task updated' : 'Task created');
+        } else {
+          showToast("Couldn't save the task. Try again.", 'error');
         }
       } catch (err) {
         console.error('Failed to save task to backend', err);
+        showToast("Couldn't reach the server. Your task wasn't saved.", 'error');
+      } finally {
+        setIsSaving(false);
       }
     } else {
       // Offline fallback behavior
@@ -88,19 +115,58 @@ export default function App() {
         setTasks([...tasks, { ...currentTask, id: Date.now() }]);
       }
       closeModal();
+      showToast(isEditing ? 'Task updated' : 'Task created');
+    }
+  };
+
+  // Inline "Create task" row at the bottom of the list (same POST payload as the modal)
+  const handleQuickAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = quickTitle.trim();
+    if (!title) return;
+
+    if (isBackendOnline) {
+      try {
+        const response = await fetch(API_BASE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, description: '', completed: false })
+        });
+        if (response.ok) {
+          setQuickTitle('');
+          fetchTasks();
+          showToast('Task created');
+        } else {
+          showToast("Couldn't create the task. Try again.", 'error');
+        }
+      } catch (err) {
+        console.error('Failed to create task', err);
+        showToast("Couldn't reach the server. Your task wasn't created.", 'error');
+      }
+    } else {
+      setTasks([...tasks, { id: Date.now(), title, description: '', completed: false }]);
+      setQuickTitle('');
+      showToast('Task created');
     }
   };
 
   const handleDeleteTask = async (id: number | null) => {
     if (isBackendOnline) {
       try {
-        await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' });
-        setTasks(tasks.filter(t => t.id !== id));
+        const response = await fetch(`${API_BASE_URL}/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          setTasks(tasks.filter(t => t.id !== id));
+          showToast('Task deleted');
+        } else {
+          showToast("Couldn't delete the task. Try again.", 'error');
+        }
       } catch (err) {
         console.error('Failed to delete task', err);
+        showToast("Couldn't reach the server. The task wasn't deleted.", 'error');
       }
     } else {
       setTasks(tasks.filter(t => t.id !== id));
+      showToast('Task deleted');
     }
   };
 
@@ -108,14 +174,19 @@ export default function App() {
     const updated = { ...task, completed: !task.completed };
     if (isBackendOnline) {
       try {
-        await fetch(`${API_BASE_URL}/${task.id}`, {
+        const response = await fetch(`${API_BASE_URL}/${task.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updated)
         });
-        setTasks(tasks.map(t => t.id === task.id ? updated : t));
+        if (response.ok) {
+          setTasks(tasks.map(t => t.id === task.id ? updated : t));
+        } else {
+          showToast("Couldn't update the status. Try again.", 'error');
+        }
       } catch (err) {
         console.error('Failed to update status', err);
+        showToast("Couldn't reach the server. The status wasn't changed.", 'error');
       }
     } else {
       setTasks(tasks.map(t => t.id === task.id ? updated : t));
@@ -139,6 +210,24 @@ export default function App() {
     setCurrentTask({ id: null, title: '', description: '', completed: false });
   };
 
+  const confirmDelete = async () => {
+    if (!taskToDelete) return;
+    const id = taskToDelete.id;
+    setTaskToDelete(null);
+    await handleDeleteTask(id);
+  };
+
+  // Escape closes whichever dialog is open
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (taskToDelete) setTaskToDelete(null);
+      else if (isModalOpen) closeModal();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isModalOpen, taskToDelete]);
+
   // Filter & Search logic
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -158,6 +247,7 @@ export default function App() {
   ];
 
   const filterTitle = navItems.find(n => n.key === filter)?.label ?? 'All tasks';
+  const isFirstLoad = loading && tasks.length === 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F8F9] text-[#172B4D]">
@@ -179,8 +269,17 @@ export default function App() {
             placeholder="Search tasks"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-9 bg-white border-2 border-[#DFE1E6] hover:bg-[#F7F8F9] rounded pl-9 pr-3 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white"
+            className="w-full h-9 bg-white border-2 border-[#DFE1E6] hover:bg-[#F7F8F9] rounded pl-9 pr-9 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-[#626F86] hover:bg-[#091E420F] cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -253,10 +352,16 @@ export default function App() {
           {!isBackendOnline && (
             <div className="mb-5 flex items-start gap-3 rounded border border-[#F5CD47] bg-[#FFF7D6] px-4 py-3 text-sm" role="status">
               <AlertTriangle className="w-4 h-4 mt-0.5 text-[#946F00] shrink-0" />
-              <p>
+              <p className="flex-1">
                 <span className="font-semibold">Can't reach the server.</span>{' '}
                 Showing sample tasks. Changes stay in this browser until the Spring Boot backend is running.
               </p>
+              <button
+                onClick={fetchTasks}
+                className="shrink-0 h-7 px-2.5 rounded text-xs font-semibold text-[#172B4D] hover:bg-[#091E4214] cursor-pointer"
+              >
+                Retry
+              </button>
             </div>
           )}
 
@@ -264,6 +369,12 @@ export default function App() {
             <div>
               <p className="text-xs text-[#626F86] mb-1">Tasks / {filterTitle}</p>
               <h1 className="text-2xl font-semibold">{filterTitle}</h1>
+              {!isFirstLoad && (
+                <p className="text-sm text-[#626F86] mt-1">
+                  {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
+                  {searchQuery && ` matching "${searchQuery}"`}
+                </p>
+              )}
             </div>
 
             {/* Filter tabs for small screens (sidebar is hidden) */}
@@ -292,16 +403,28 @@ export default function App() {
               <span className="text-right">Actions</span>
             </div>
 
-            {filteredTasks.length === 0 ? (
-              <div className="py-16 text-center">
-                <p className="font-semibold">No tasks match this view</p>
-                <p className="text-sm text-[#626F86] mt-1">Clear the search, switch filters, or create a task.</p>
-                <button
-                  onClick={openCreateModal}
-                  className="mt-4 h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer"
-                >
-                  Create task
-                </button>
+            {isFirstLoad ? (
+              <ul className="divide-y divide-[#DFE1E6]" aria-busy="true" aria-label="Loading tasks">
+                {[0, 1, 2].map((i) => (
+                  <li key={i} className="px-4 py-4 flex items-center gap-3 animate-pulse">
+                    <div className="w-5 h-5 rounded-full bg-[#DFE1E6]" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3.5 w-1/3 rounded bg-[#DFE1E6]" />
+                      <div className="h-3 w-1/2 rounded bg-[#EFF1F3]" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : filteredTasks.length === 0 ? (
+              <div className="py-14 text-center">
+                <p className="font-semibold">
+                  {tasks.length === 0 ? 'No tasks yet' : 'No tasks match this view'}
+                </p>
+                <p className="text-sm text-[#626F86] mt-1">
+                  {tasks.length === 0
+                    ? 'Add your first task below or use Create.'
+                    : 'Clear the search or switch filters to see more.'}
+                </p>
               </div>
             ) : (
               <ul className="divide-y divide-[#DFE1E6]">
@@ -324,14 +447,18 @@ export default function App() {
 
                     <span className="hidden sm:block text-xs text-[#626F86] font-medium">WW-{task.id}</span>
 
-                    <div className="min-w-0">
-                      <p className={`text-sm font-medium truncate ${task.completed ? 'line-through text-[#626F86]' : ''}`}>
+                    {/* Clicking the summary opens the task for editing */}
+                    <button
+                      onClick={() => openEditModal(task)}
+                      className="min-w-0 text-left cursor-pointer"
+                    >
+                      <p className={`text-sm font-medium truncate hover:underline ${task.completed ? 'line-through text-[#626F86]' : ''}`}>
                         {task.title}
                       </p>
                       {task.description && (
                         <p className="text-xs text-[#626F86] mt-0.5 truncate">{task.description}</p>
                       )}
-                    </div>
+                    </button>
 
                     <span
                       className={`hidden sm:inline-flex justify-self-start items-center px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase ${
@@ -352,7 +479,7 @@ export default function App() {
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteTask(task.id)}
+                        onClick={() => setTaskToDelete(task)}
                         aria-label="Delete task"
                         className="p-1.5 rounded text-[#44546F] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer"
                       >
@@ -362,6 +489,24 @@ export default function App() {
                   </li>
                 ))}
               </ul>
+            )}
+
+            {/* Quick add row */}
+            {!isFirstLoad && (
+              <form
+                onSubmit={handleQuickAdd}
+                className="flex items-center gap-3 px-4 h-12 border-t border-[#DFE1E6] bg-[#F7F8F9] focus-within:bg-white"
+              >
+                <Plus className="w-5 h-5 text-[#626F86] shrink-0" />
+                <input
+                  type="text"
+                  aria-label="Task summary"
+                  placeholder="Create a task and press Enter"
+                  value={quickTitle}
+                  onChange={(e) => setQuickTitle(e.target.value)}
+                  className="flex-1 bg-transparent text-sm placeholder-[#626F86] focus:outline-none"
+                />
+              </form>
             )}
           </div>
         </main>
@@ -381,7 +526,10 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 pt-5 pb-2">
-              <h2 className="text-xl font-semibold">{isEditing ? 'Edit task' : 'Create task'}</h2>
+              <div>
+                {isEditing && <p className="text-xs text-[#626F86] mb-0.5">WW-{currentTask.id}</p>}
+                <h2 className="text-xl font-semibold">{isEditing ? 'Edit task' : 'Create task'}</h2>
+              </div>
               <button
                 onClick={closeModal}
                 aria-label="Close"
@@ -430,7 +578,7 @@ export default function App() {
                   onChange={(e) => setCurrentTask({ ...currentTask, completed: e.target.checked })}
                   className="w-4 h-4 rounded-sm accent-[#0C66E4] cursor-pointer"
                 />
-                <label htmlFor="completed" className="text-sm">
+                <label htmlFor="completed" className="text-sm cursor-pointer">
                   Mark as completed
                 </label>
               </div>
@@ -445,13 +593,62 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  className="h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer"
+                  disabled={isSaving || !currentTask.title.trim()}
+                  className="h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer disabled:bg-[#091E420F] disabled:text-[#8993A4] disabled:cursor-not-allowed"
                 >
-                  {isEditing ? 'Save changes' : 'Create'}
+                  {isSaving ? 'Saving...' : isEditing ? 'Save changes' : 'Create'}
                 </button>
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {taskToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-32 bg-[#091E428A]"
+          onClick={() => setTaskToDelete(null)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="Delete task"
+            className="bg-white rounded-md w-full max-w-sm p-6 shadow-[0_8px_12px_#091E4226,0_0_1px_#091E424F]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold">Delete WW-{taskToDelete.id}?</h2>
+            <p className="text-sm text-[#44546F] mt-2 wrap-break-words">
+              "{taskToDelete.title}" will be permanently deleted. This can't be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2 mt-6">
+              <button
+                onClick={() => setTaskToDelete(null)}
+                autoFocus
+                className="h-9 px-3 rounded text-sm font-medium text-[#44546F] hover:bg-[#091E420F] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="h-9 px-3 rounded bg-[#C9372C] hover:bg-[#AE2E24] text-white text-sm font-medium transition-colors cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div
+          role="status"
+          className={`fixed bottom-6 left-6 z-60 max-w-sm rounded px-4 py-3 text-sm font-medium text-white shadow-[0_8px_12px_#091E4226] ${
+            toast.type === 'error' ? 'bg-[#C9372C]' : 'bg-[#172B4D]'
+          }`}
+        >
+          {toast.message}
         </div>
       )}
     </div>
