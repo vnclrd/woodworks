@@ -401,6 +401,15 @@ export default function App() {
   const completedCount = tasks.filter(t => t.completed).length;
   const pendingCount = tasks.length - completedCount;
 
+  // Stable display keys: rank by creation order (ID) across ALL tasks,
+  // so sorting, filtering and searching never change a task's key
+  const taskKeys = new Map<number | null, number>(
+    [...tasks]
+      .sort((a, b) => (a.id || 0) - (b.id || 0))
+      .map((t, i) => [t.id, i + 1] as [number | null, number])
+  );
+  const getTaskKey = (task: Task) => `WW-${taskKeys.get(task.id) ?? '?'}`;
+
   const navItems = [
     { key: 'ALL', label: 'All tasks', icon: ListTodo, count: tasks.length },
     { key: 'PENDING', label: 'To do', icon: Clock, count: pendingCount },
@@ -447,7 +456,7 @@ export default function App() {
               </ul>
             </div>
 
-            <p className="text-xs text-white/80">Enterprise task management</p>
+            <p className="text-xs text-white/80">Personal Task Management System</p>
           </div>
 
           {/* Form panel */}
@@ -790,7 +799,7 @@ export default function App() {
                   </div>
                 ) : (
                   <ul className="divide-y divide-[#DFE1E6]">
-                    {filteredTasks.map((task, index) => (
+                    {filteredTasks.map((task) => (
                       <li
                         key={task.id}
                         className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 py-3 items-center hover:bg-[#F7F8F9] transition-colors group"
@@ -807,7 +816,7 @@ export default function App() {
                           )}
                         </button>
 
-                        <span className="hidden sm:block text-xs text-[#626F86] font-medium">WW-{index + 1}</span>
+                        <span className="hidden sm:block text-xs text-[#626F86] font-medium">{getTaskKey(task)}</span>
 
                         {/* Clicking the summary opens the task for editing */}
                         <button
@@ -889,7 +898,7 @@ export default function App() {
               >
                 <div className="flex items-center justify-between px-6 pt-5 pb-2">
                   <div>
-                    {isEditing && <p className="text-xs text-[#626F86] mb-0.5">WW-{currentTask.id}</p>}
+                    {isEditing && <p className="text-xs text-[#626F86] mb-0.5">{getTaskKey(currentTask)}</p>}
                     <h2 className="text-xl font-semibold">{isEditing ? 'Edit task' : 'Create task'}</h2>
                   </div>
                   <button
@@ -979,7 +988,7 @@ export default function App() {
                 className="bg-white rounded-md w-full max-w-sm p-6 shadow-[0_8px_12px_#091E4226,0_0_1px_#091E424F]"
                 onClick={(e) => e.stopPropagation()}
               >
-                <h2 className="text-lg font-semibold">Delete WW-{taskToDelete.id}?</h2>
+                <h2 className="text-lg font-semibold">Delete {getTaskKey(taskToDelete)}?</h2>
                 <p className="text-sm text-[#44546F] mt-2 wrap-break-words">
                   "{taskToDelete.title}" will be permanently deleted. This can't be undone.
                 </p>
