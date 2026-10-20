@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2, Circle, Plus, Trash2, Pencil, Search,
-  RefreshCw, ListTodo, CheckSquare, Clock, X, AlertTriangle, SquareCheckBig
+  RefreshCw, ListTodo, CheckSquare, Clock, X, AlertTriangle, SquareCheckBig,
+  Eye, EyeOff
 } from 'lucide-react';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -30,6 +31,11 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Auth UI-only states (never sent to the backend)
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState('ALL'); // ALL, PENDING, COMPLETED
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,33 +57,62 @@ export default function App() {
 
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
+  // Switching between Sign in / Sign up resets the form so errors and passwords don't carry over
+  const switchAuthView = (view: 'login' | 'register') => {
+    setAuthView(view);
+    setAuthError(null);
+    setPasswordInput('');
+    setConfirmPasswordInput('');
+    setShowPassword(false);
+  };
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAuthLoading) return;
     setAuthError(null);
+
+    if (authView === 'register' && passwordInput !== confirmPasswordInput) {
+      setAuthError("Passwords don't match. Please re-enter them.");
+      return;
+    }
+
     const endpoint = authView === 'login' ? '/api/auth/login' : '/api/auth/register';
+    setIsAuthLoading(true);
 
     try {
       const response = await fetch(`${BASE_URL.replace(/\/$/, '')}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailInput, password: passwordInput })
+        body: JSON.stringify({ email: emailInput.trim(), password: passwordInput })
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Authentication failed');
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch {
+        // Response had no JSON body; fall through to the generic message below
       }
 
-      // Save token and update state
+      if (!response.ok) {
+        throw new Error(data.error || 'Authentication failed. Please try again.');
+      }
+
+      // Save token and update state (the effect below loads this user's tasks)
       localStorage.setItem('woodworks_token', data.token);
       setToken(data.token);
       setEmailInput('');
       setPasswordInput('');
+      setConfirmPasswordInput('');
+      setShowPassword(false);
       showToast(authView === 'login' ? 'Logged in successfully' : 'Account created successfully');
-      fetchTasks(); // Load tasks for this user
     } catch (err: any) {
-      setAuthError(err.message);
+      if (err instanceof TypeError) {
+        setAuthError("Couldn't reach the server. Check your connection and try again.");
+      } else {
+        setAuthError(err.message);
+      }
+    } finally {
+      setIsAuthLoading(false);
     }
   };
 
@@ -375,76 +410,178 @@ export default function App() {
   const filterTitle = navItems.find(n => n.key === filter)?.label ?? 'All tasks';
   const isFirstLoad = loading && tasks.length === 0;
 
+  const authInputClass =
+    'w-full h-11 bg-white border-2 border-[#DFE1E6] hover:bg-[#F7F8F9] rounded px-3 text-sm placeholder-[#626F86] focus:outline-none focus:border-[#4C9AFF] focus:bg-white';
+
   return (
     <>
       {!isDemoMode && !token ? (
-        <div className="min-h-screen flex items-center justify-center bg-[#F7F8F9] px-4">
-          <div className="max-w-md w-full bg-white rounded-lg border border-[#DFE1E6] p-8 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded bg-[#0C66E4] text-white flex items-center justify-center font-bold text-lg">
+        <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr] bg-white">
+
+          {/* Brand panel (desktop only) */}
+          <div className="hidden lg:flex flex-col justify-between bg-[#0C66E4] text-white p-12">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded bg-white text-[#0C66E4] flex items-center justify-center font-bold">
                 W
               </div>
-              <div>
-                <h1 className="text-xl font-semibold">WoodWorks Tasks</h1>
-                <p className="text-xs text-[#626F86]">Sign in to manage your tasks</p>
-              </div>
+              <span className="font-semibold text-lg">WoodWorks</span>
             </div>
 
-            {authError && (
-              <div className="mb-4 p-3 bg-[#FFECEB] border border-[#C9372C33] text-[#C9372C] text-xs rounded">
-                {authError}
+            <div className="max-w-md">
+              <h2 className="text-3xl font-semibold leading-tight">
+                Keep every task moving, from to do to done.
+              </h2>
+              <ul className="mt-8 space-y-4 text-sm">
+                {[
+                  { icon: ListTodo, text: 'Capture tasks in seconds with quick add' },
+                  { icon: Search, text: 'Search and filter by status instantly' },
+                  { icon: CheckSquare, text: 'See your progress at a glance' },
+                ].map(({ icon: Icon, text }) => (
+                  <li key={text} className="flex items-center gap-3">
+                    <span className="w-8 h-8 rounded bg-white/15 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    {text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <p className="text-xs text-white/80">Enterprise task management</p>
+          </div>
+
+          {/* Form panel */}
+          <div className="flex items-center justify-center px-6 py-12 bg-[#F7F8F9] lg:bg-white">
+            <div className="w-full max-w-sm">
+
+              {/* Logo for small screens (brand panel is hidden) */}
+              <div className="lg:hidden flex items-center gap-2.5 mb-8">
+                <div className="w-9 h-9 rounded bg-[#0C66E4] text-white flex items-center justify-center font-bold">
+                  W
+                </div>
+                <span className="font-semibold text-lg">WoodWorks</span>
               </div>
-            )}
 
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#44546F] mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full h-10 bg-[#F7F8F9] border border-[#DFE1E6] rounded px-3 text-sm focus:outline-none focus:border-[#0C66E4] focus:bg-white"
-                />
-              </div>
+              <h1 className="text-2xl font-semibold">
+                {authView === 'login' ? 'Welcome back' : 'Create your account'}
+              </h1>
+              <p className="text-sm text-[#626F86] mt-1.5">
+                {authView === 'login'
+                  ? 'Sign in to manage your tasks.'
+                  : 'Sign up to start organizing your tasks.'}
+              </p>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#44546F] mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-10 bg-[#F7F8F9] border border-[#DFE1E6] rounded px-3 text-sm focus:outline-none focus:border-[#0C66E4] focus:bg-white"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full h-10 bg-[#0C66E4] hover:bg-[#0055CC] text-white rounded text-sm font-medium transition-colors cursor-pointer"
-              >
-                {authView === 'login' ? 'Sign In' : 'Create Account'}
-              </button>
-            </form>
-
-            <div className="mt-6 text-center text-xs text-[#626F86]">
-              {authView === 'login' ? (
-                <p>
-                  Don't have an account?{' '}
-                  <button onClick={() => setAuthView('register')} className="text-[#0C66E4] font-medium hover:underline cursor-pointer">
-                    Sign up
-                  </button>
-                </p>
-              ) : (
-                <p>
-                  Already have an account?{' '}
-                  <button onClick={() => setAuthView('login')} className="text-[#0C66E4] font-medium hover:underline cursor-pointer">
-                    Sign in
-                  </button>
-                </p>
+              {authError && (
+                <div
+                  role="alert"
+                  className="mt-5 flex items-start gap-2.5 p-3 bg-[#FFECEB] border border-[#C9372C33] text-[#AE2E24] text-sm rounded"
+                >
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{authError}</span>
+                </div>
               )}
+
+              <form onSubmit={handleAuthSubmit} className="mt-6 space-y-4">
+                <div>
+                  <label htmlFor="auth-email" className="block text-xs font-semibold text-[#44546F] mb-1">
+                    Email
+                  </label>
+                  <input
+                    id="auth-email"
+                    type="email"
+                    required
+                    autoFocus
+                    autoComplete="email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="you@example.com"
+                    className={authInputClass}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="auth-password" className="block text-xs font-semibold text-[#44546F] mb-1">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="auth-password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      autoComplete={authView === 'login' ? 'current-password' : 'new-password'}
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      placeholder="Enter your password"
+                      className={`${authInputClass} pr-11`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(prev => !prev)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded text-[#626F86] hover:bg-[#091E420F] cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {authView === 'register' && (
+                  <div>
+                    <label htmlFor="auth-confirm" className="block text-xs font-semibold text-[#44546F] mb-1">
+                      Confirm password
+                    </label>
+                    <input
+                      id="auth-confirm"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="new-password"
+                      value={confirmPasswordInput}
+                      onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                      placeholder="Re-enter your password"
+                      className={authInputClass}
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isAuthLoading}
+                  className="w-full h-11 flex items-center justify-center gap-2 bg-[#0C66E4] hover:bg-[#0055CC] text-white rounded text-sm font-medium transition-colors cursor-pointer disabled:bg-[#091E420F] disabled:text-[#8993A4] disabled:cursor-not-allowed"
+                >
+                  {isAuthLoading && <RefreshCw className="w-4 h-4 animate-spin" />}
+                  {isAuthLoading
+                    ? (authView === 'login' ? 'Signing in...' : 'Creating account...')
+                    : (authView === 'login' ? 'Sign in' : 'Create account')}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center text-sm text-[#626F86]">
+                {authView === 'login' ? (
+                  <p>
+                    Don't have an account?{' '}
+                    <button onClick={() => switchAuthView('register')} className="text-[#0C66E4] font-medium hover:underline cursor-pointer">
+                      Sign up
+                    </button>
+                  </p>
+                ) : (
+                  <p>
+                    Already have an account?{' '}
+                    <button onClick={() => switchAuthView('login')} className="text-[#0C66E4] font-medium hover:underline cursor-pointer">
+                      Sign in
+                    </button>
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-[#DFE1E6] text-center">
+                <a
+                  href="?demo=true"
+                  className="inline-flex items-center justify-center w-full h-10 rounded border border-[#DFE1E6] bg-white text-sm font-medium text-[#44546F] hover:bg-[#091E420F] transition-colors"
+                >
+                  Try the demo without an account
+                </a>
+              </div>
             </div>
           </div>
         </div>
