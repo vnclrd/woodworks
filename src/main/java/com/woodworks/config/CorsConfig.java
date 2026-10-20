@@ -13,8 +13,8 @@ public class CorsConfig {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/api/**")
-                        .allowedOrigins("http://localhost:5173") // Allows your Vite/React frontend
+                registry.addMapping("/**") // Allow all paths
+                        .allowedOriginPatterns("*") // Allows localhost and future production domains
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);
