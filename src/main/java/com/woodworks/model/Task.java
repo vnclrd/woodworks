@@ -7,17 +7,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 
-@Entity
-@Table(name = "tasks")
+@Entity // Tells Spring Boot that this class represents a table in the database
+@Table(name = "tasks") // Tells Spring Boot exactly which database table this class should map to
 // 1. Class declaration
 public class Task {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Id // Marks a specific field in this Java class as the primary key of the database table
+  @GeneratedValue(strategy = GenerationType.IDENTITY) // Tells Spring Boot how to generate new values the primary key
   // 2. Private fields
   private Long id;
 
-  @NotBlank(message = "Task title cannot be blank")
+  @NotBlank(message = "Task title cannot be blank") // Annotated element must not be blank
   private String title;
   private String description;
   private boolean completed;

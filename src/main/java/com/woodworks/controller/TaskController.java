@@ -50,12 +50,8 @@ public class TaskController {
     // PUT /api/tasks/{id} - Update an existing task
     @PutMapping("/{id}")
     public ResponseEntity<Task> updateTask(@PathVariable Long id, @Valid @RequestBody Task taskDetails) {
-        try {
-            Task updatedTask = taskService.updateTask(id, taskDetails);
-            return ResponseEntity.ok(updatedTask);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+        Task updatedTask = taskService.updateTask(id, taskDetails);
+        return ResponseEntity.ok(updatedTask);
     }
 
     // DELETE /api/tasks/{id} - Delete a task
