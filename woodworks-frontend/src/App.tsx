@@ -431,7 +431,7 @@ export default function App() {
           <div className="hidden lg:flex flex-col justify-between bg-[#212529] text-white p-12">
             <div className="flex items-center gap-2.5">
               <img 
-                src="src/assets/WoodWorksLogo.png" 
+                src="/WoodWorksLogo.png"
                 alt="WoodWorks Logo" 
                 className="w-10 h-10 rounded-2xl object-contain shadow-sm"
               />
@@ -468,7 +468,7 @@ export default function App() {
               {/* Logo for small screens (brand panel is hidden) */}
               <div className="lg:hidden flex items-center gap-2.5 mb-8">
                 <img 
-                  src="src/assets/WoodWorksLogo.png" 
+                  src="/WoodWorksLogo.png"
                   alt="WoodWorks Logo" 
                   className="w-10 h-10 rounded-2xl object-contain shadow-sm"
                 />
@@ -613,9 +613,9 @@ export default function App() {
           <header className="h-14 bg-white border-b border-[#DFE1E6] flex items-center gap-4 px-4 sticky top-0 z-20">
             <div className="flex items-center gap-2.5 w-52 shrink-0">
               <img 
-                src="src/assets/WoodWorksLogo.png" 
+                src="/WoodWorksLogo.png"
                 alt="WoodWorks Logo" 
-                className="w-10 h-10 rounded-2xl object-contain shadow-sm border border-[#DFE1E6]"
+                className="w-10 h-10 rounded-2xl object-contain shadow-sm"
               />
               <span className="font-semibold text-[15px]">WoodWorks</span>
             </div>
