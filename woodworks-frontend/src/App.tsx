@@ -188,13 +188,13 @@ export default function App() {
             onClick={fetchTasks}
             title="Refresh tasks"
             aria-label="Refresh tasks"
-            className="h-9 w-9 flex items-center justify-center rounded text-[#44546F] hover:bg-[#091E420F] transition-colors"
+            className="h-9 w-9 flex items-center justify-center rounded text-[#44546F] hover:bg-[#091E420F] transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={openCreateModal}
-            className="h-9 flex items-center gap-1.5 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors"
+            className="h-9 flex items-center gap-1.5 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Create
@@ -222,7 +222,7 @@ export default function App() {
                 key={key}
                 onClick={() => setFilter(key)}
                 aria-current={filter === key ? 'page' : undefined}
-                className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded text-sm transition-colors ${
+                className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded text-sm transition-colors cursor-pointer ${
                   filter === key
                     ? 'bg-[#E9F2FF] text-[#0C66E4] font-semibold'
                     : 'text-[#44546F] hover:bg-[#091E420F]'
@@ -272,7 +272,7 @@ export default function App() {
                 <button
                   key={tab}
                   onClick={() => setFilter(tab)}
-                  className={`px-3 h-8 text-xs font-medium ${
+                  className={`px-3 h-8 text-xs font-medium cursor-pointer ${
                     filter === tab ? 'bg-[#E9F2FF] text-[#0C66E4]' : 'text-[#44546F]'
                   }`}
                 >
@@ -298,7 +298,7 @@ export default function App() {
                 <p className="text-sm text-[#626F86] mt-1">Clear the search, switch filters, or create a task.</p>
                 <button
                   onClick={openCreateModal}
-                  className="mt-4 h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors"
+                  className="mt-4 h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer"
                 >
                   Create task
                 </button>
@@ -313,7 +313,7 @@ export default function App() {
                     <button
                       onClick={() => toggleComplete(task)}
                       aria-label={task.completed ? 'Mark as to do' : 'Mark as done'}
-                      className="text-[#626F86] hover:text-[#1F845A] transition-colors"
+                      className="text-[#626F86] hover:text-[#1F845A] transition-colors cursor-pointer"
                     >
                       {task.completed ? (
                         <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
@@ -347,14 +347,14 @@ export default function App() {
                       <button
                         onClick={() => openEditModal(task)}
                         aria-label="Edit task"
-                        className="p-1.5 rounded text-[#44546F] hover:bg-[#091E4224]"
+                        className="p-1.5 rounded text-[#44546F] hover:bg-[#091E4224] cursor-pointer"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteTask(task.id)}
                         aria-label="Delete task"
-                        className="p-1.5 rounded text-[#44546F] hover:bg-[#FFECEB] hover:text-[#C9372C]"
+                        className="p-1.5 rounded text-[#44546F] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -385,7 +385,7 @@ export default function App() {
               <button
                 onClick={closeModal}
                 aria-label="Close"
-                className="p-1.5 rounded text-[#44546F] hover:bg-[#091E420F]"
+                className="p-1.5 rounded text-[#44546F] hover:bg-[#091E420F] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -428,7 +428,7 @@ export default function App() {
                   id="completed"
                   checked={currentTask.completed}
                   onChange={(e) => setCurrentTask({ ...currentTask, completed: e.target.checked })}
-                  className="w-4 h-4 rounded-sm accent-[#0C66E4]"
+                  className="w-4 h-4 rounded-sm accent-[#0C66E4] cursor-pointer"
                 />
                 <label htmlFor="completed" className="text-sm">
                   Mark as completed
@@ -439,13 +439,13 @@ export default function App() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="h-9 px-3 rounded text-sm font-medium text-[#44546F] hover:bg-[#091E420F]"
+                  className="h-9 px-3 rounded text-sm font-medium text-[#44546F] hover:bg-[#091E420F] cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors"
+                  className="h-9 px-3 rounded bg-[#0C66E4] hover:bg-[#0055CC] text-white text-sm font-medium transition-colors cursor-pointer"
                 >
                   {isEditing ? 'Save changes' : 'Create'}
                 </button>
