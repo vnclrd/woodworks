@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CheckCircle2, Circle, Plus, Trash2, Pencil, Search,
   RefreshCw, ListTodo, CheckSquare, Clock, X, AlertTriangle, SquareCheckBig,
-  Eye, EyeOff, LogOut, Flag, Repeat, Pin
+  Eye, EyeOff, LogOut, Flag, Repeat, Pin,
+  Sparkles, Send, PanelRightClose, PanelRightOpen, RotateCcw
 } from 'lucide-react';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -35,6 +36,39 @@ interface DailyTask {
 interface Toast {
   message: string;
   type: 'success' | 'error';
+}
+
+interface ChatMessage {
+  id: number;
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+const WELCOME_MESSAGE: ChatMessage = {
+  id: 0,
+  role: 'assistant',
+  text: "Hi! I'm your task assistant. Once I'm connected, I can help you plan your day, summarize your tasks and keep track of what's urgent."
+};
+
+const CHAT_SUGGESTIONS = [
+  'Summarize my open tasks',
+  "What's urgent today?",
+  'Help me plan my day',
+];
+
+// Tracks a CSS media query so the layout can adapt in JavaScript
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
+    setMatches(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [query]);
+
+  return matches;
 }
 
 function loadJSON<T>(key: string, fallback: T): T {
@@ -94,6 +128,17 @@ export default function App() {
   const [today, setToday] = useState(getTodayKey());
 
   const [mobilePanel, setMobilePanel] = useState<'tasks' | 'daily'>('tasks');
+
+  // AI assistant chat bar (UI only: no AI is connected yet)
+  const isLargeScreen = useMediaQuery('(min-width: 1024px)');
+  const hasRoomForBothCardsWithChat = useMediaQuery('(min-width: 1440px)'); // two cards + open chat bar
+  const hasRoomForBothCardsWithRail = useMediaQuery('(min-width: 1240px)'); // two cards + collapsed chat rail
+  const [isChatOpen, setIsChatOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [chatInput, setChatInput] = useState('');
+  const [isAssistantTyping, setIsAssistantTyping] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const chatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = (message: string, type: Toast['type'] = 'success') => setToast({ message, type });
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
@@ -565,6 +610,54 @@ export default function App() {
     }
   };
 
+  // AI assistant chat (placeholder logic: replace the timeout with a real AI call later)
+  const sendChatMessage = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isAssistantTyping) return;
+
+    setChatMessages(prev => [...prev, { id: Date.now(), role: 'user', text: trimmed }]);
+    setChatInput('');
+    setIsAssistantTyping(true);
+
+    // TODO: replace this placeholder reply with a call to your AI backend
+    chatTimerRef.current = setTimeout(() => {
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: 'assistant',
+          text: "The AI assistant isn't connected yet. Once it's integrated, I'll be able to help with this."
+        }
+      ]);
+      setIsAssistantTyping(false);
+    }, 900);
+  };
+
+  const resetChat = () => {
+    if (chatTimerRef.current) clearTimeout(chatTimerRef.current);
+    setChatMessages([WELCOME_MESSAGE]);
+    setChatInput('');
+    setIsAssistantTyping(false);
+  };
+
+  // Open by default on large screens (side column), closed on small ones (drawer)
+  useEffect(() => {
+    setIsChatOpen(isLargeScreen);
+  }, [isLargeScreen]);
+
+  // Keep the newest message in view
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [chatMessages, isAssistantTyping, isChatOpen]);
+
+  // Clear any pending reply timer on unmount
+  useEffect(() => {
+    return () => {
+      if (chatTimerRef.current) clearTimeout(chatTimerRef.current);
+    };
+  }, []);
+
   const openCreateModal = () => {
     setCurrentTask({ id: null, title: '', description: '', completed: false, pinned: false, urgent: false });
     setIsEditing(false);
@@ -594,10 +687,11 @@ export default function App() {
       if (e.key !== 'Escape') return;
       if (taskToDelete) setTaskToDelete(null);
       else if (isModalOpen) closeModal();
+      else if (!isLargeScreen && isChatOpen) setIsChatOpen(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isModalOpen, taskToDelete]);
+  }, [isModalOpen, taskToDelete, isLargeScreen, isChatOpen]);
 
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -652,6 +746,10 @@ export default function App() {
   const dailyDoneCount = dailyTasks.filter(d => d.lastCompleted === today).length;
   const allDailyDone = dailyTasks.length > 0 && dailyDoneCount === dailyTasks.length;
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+  // The two cards sit side by side only when there's room; the open chat bar takes extra width
+  const isChatColumnOpen = isLargeScreen && isChatOpen;
+  const cardsSideBySide = isChatColumnOpen ? hasRoomForBothCardsWithChat : hasRoomForBothCardsWithRail;
 
   const authInputClass =
     'w-full h-11 bg-white border-2 border-[#DEE2E6] hover:bg-[#F8F9FA] rounded px-3 text-sm placeholder-[#5C636A] focus:outline-none focus:border-[#212529] focus:bg-white';
@@ -900,6 +998,16 @@ export default function App() {
             </button>
 
             <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
+              {!isLargeScreen && (
+                <button
+                  onClick={() => setIsChatOpen(true)}
+                  title="AI assistant"
+                  aria-label="Open AI assistant"
+                  className="h-9 w-9 flex items-center justify-center rounded text-[#BF5700] hover:bg-[#FFEAD6] transition-colors cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={() => { fetchTasks(false); fetchDailyTasks(); }}
                 title="Refresh tasks"
@@ -977,7 +1085,7 @@ export default function App() {
               </div>
             </aside>
 
-            <main className="flex-1 min-w-0 min-h-0 flex flex-col max-w-350 px-4 sm:px-6 py-6">
+            <main className="flex-1 min-w-0 min-h-0 flex flex-col px-4 sm:px-6 py-6">
               {!isBackendOnline && (
                 <div className="shrink-0 mb-5 flex items-start gap-3 rounded border border-[#F5CD47] bg-[#FFF7D6] px-4 py-3 text-sm" role="status">
                   <AlertTriangle className="w-4 h-4 mt-0.5 text-[#946F00] shrink-0" />
@@ -1023,7 +1131,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="xl:hidden shrink-0 mb-3 flex w-fit rounded border border-[#DEE2E6] bg-white overflow-hidden">
+              <div className={`${cardsSideBySide ? 'hidden' : 'flex'} shrink-0 mb-3 w-fit rounded border border-[#DEE2E6] bg-white overflow-hidden`}>
                 {([
                   { key: 'tasks', label: 'Tasks' },
                   { key: 'daily', label: `Daily (${dailyDoneCount}/${dailyTasks.length})` },
@@ -1043,9 +1151,9 @@ export default function App() {
                 ))}
               </div>
 
-              <div className="flex-1 min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
-                <div className={`${mobilePanel === 'tasks' ? 'flex' : 'hidden'} xl:flex min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}>
-                  <div className="shrink-0 hidden sm:grid grid-cols-[2rem_5rem_1fr_9rem_8rem] gap-3 px-4 h-10 items-center border-b border-[#DEE2E6] bg-[#F8F9FA] text-xs font-semibold text-[#5C636A]">
+              <div className={`flex-1 min-h-0 grid grid-rows-[minmax(0,1fr)] gap-4 ${cardsSideBySide ? 'grid-cols-[minmax(0,2fr)_minmax(0,1fr)]' : 'grid-cols-1'}`}>
+                <div className={`${cardsSideBySide || mobilePanel === 'tasks' ? 'flex' : 'hidden'} @container min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}>
+                  <div className="shrink-0 hidden @xl:grid grid-cols-[2rem_5rem_1fr_9rem_8rem] gap-3 px-4 h-10 items-center border-b border-[#DEE2E6] bg-[#F8F9FA] text-xs font-semibold text-[#5C636A]">
                     <span />
                     <span>Key</span>
                     <span>Summary</span>
@@ -1086,7 +1194,7 @@ export default function App() {
                           return (
                             <li
                               key={task.id}
-                              className={`grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2rem_5rem_1fr_9rem_8rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] transition-colors ${
+                              className={`grid grid-cols-[2rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_9rem_8rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] transition-colors ${
                                 pinned ? 'bg-[#FFF9F0] shadow-[inset_3px_0_0_#D97706]' : urgent ? 'shadow-[inset_3px_0_0_#BF5700]' : ''
                               }`}
                             >
@@ -1102,7 +1210,7 @@ export default function App() {
                                 )}
                               </button>
 
-                              <span className="hidden sm:block text-xs text-[#5C636A] font-medium">{getTaskKey(task)}</span>
+                              <span className="hidden @xl:block text-xs text-[#5C636A] font-medium">{getTaskKey(task)}</span>
 
                               <button
                                 onClick={() => openEditModal(task)}
@@ -1119,7 +1227,7 @@ export default function App() {
                                 )}
                               </button>
 
-                              <div className="hidden sm:flex items-center gap-1 min-w-0 flex-wrap">
+                              <div className="hidden @xl:flex items-center gap-1 min-w-0 flex-wrap">
                                 {pinned && (
                                   <span className="px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase bg-[#FEF3C7] text-[#B45309]">
                                     Pinned
@@ -1206,7 +1314,7 @@ export default function App() {
 
                 <section
                   aria-label="Daily tasks"
-                  className={`${mobilePanel === 'daily' ? 'flex' : 'hidden'} xl:flex min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}
+                  className={`${cardsSideBySide || mobilePanel === 'daily' ? 'flex' : 'hidden'} min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}
                 >
                   <div className="shrink-0 px-4 py-3 border-b border-[#DEE2E6] bg-[#F8F9FA]">
                     <div className="flex items-center justify-between gap-2">
@@ -1293,6 +1401,174 @@ export default function App() {
                 </section>
               </div>
             </main>
+
+            {/* AI assistant bar (right side). Large screens: collapsible column like the left sidebar. Smaller screens: slide-over drawer. */}
+            {isLargeScreen && !isChatOpen && (
+              <aside
+                aria-label="AI assistant (collapsed)"
+                className="flex flex-col items-center gap-2 w-14 shrink-0 bg-[#BF5700] border-l border-black/10 py-3"
+              >
+                <button
+                  onClick={() => setIsChatOpen(true)}
+                  title="Open AI assistant"
+                  aria-label="Open AI assistant"
+                  className="w-9 h-9 flex items-center justify-center rounded text-white hover:bg-[#A34A00] transition-colors cursor-pointer"
+                >
+                  <PanelRightOpen className="w-5 h-5" />
+                </button>
+                <div className="w-9 h-9 rounded bg-white/15 flex items-center justify-center text-white" aria-hidden="true">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+              </aside>
+            )}
+
+            {isChatOpen && (
+              <>
+                {!isLargeScreen && (
+                  <div
+                    className="fixed inset-0 z-40 bg-[#2125298A]"
+                    onClick={() => setIsChatOpen(false)}
+                    aria-hidden="true"
+                  />
+                )}
+
+                <aside
+                  aria-label="AI assistant"
+                  role={isLargeScreen ? undefined : 'dialog'}
+                  aria-modal={isLargeScreen ? undefined : true}
+                  className={
+                    isLargeScreen
+                      ? 'flex flex-col w-64 shrink-0 min-h-0 bg-[#BF5700] text-white border-l border-black/10'
+                      : 'fixed inset-y-0 right-0 z-40 flex flex-col w-full max-w-sm bg-[#BF5700] text-white shadow-[-8px_0_16px_#21252933]'
+                  }
+                >
+                  {/* Header */}
+                  <div className="shrink-0 flex items-center gap-2 px-3 py-3 border-b border-white/20">
+                    <div className="w-9 h-9 rounded bg-white/15 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate">AI Assistant</p>
+                      <span className="inline-block mt-0.5 rounded-sm bg-white px-1.5 text-[10px] font-bold uppercase leading-4 text-[#A34A00]">
+                        Preview
+                      </span>
+                    </div>
+                    <button
+                      onClick={resetChat}
+                      title="New chat"
+                      aria-label="Start a new chat"
+                      className="shrink-0 w-8 h-8 flex items-center justify-center rounded hover:bg-[#A34A00] transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setIsChatOpen(false)}
+                      title={isLargeScreen ? 'Collapse assistant' : 'Close assistant'}
+                      aria-label={isLargeScreen ? 'Collapse AI assistant' : 'Close AI assistant'}
+                      className="shrink-0 w-8 h-8 flex items-center justify-center rounded hover:bg-[#A34A00] transition-colors cursor-pointer"
+                    >
+                      {isLargeScreen ? <PanelRightClose className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  {/* Messages */}
+                  <div
+                    ref={chatScrollRef}
+                    className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4"
+                    aria-live="polite"
+                  >
+                    {chatMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        {msg.role === 'assistant' && (
+                          <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+                            <Sparkles className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                        <p
+                          className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap wrap-break-words ${
+                            msg.role === 'user'
+                              ? 'bg-white text-[#212529] rounded-tr-sm'
+                              : 'bg-[#A34A00] text-white rounded-tl-sm'
+                          }`}
+                        >
+                          {msg.text}
+                        </p>
+                      </div>
+                    ))}
+
+                    {isAssistantTyping && (
+                      <div className="flex gap-2" role="status" aria-label="The assistant is typing">
+                        <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+                          <Sparkles className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex items-center gap-1 rounded-lg rounded-tl-sm bg-[#A34A00] px-3 py-3">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce [animation-delay:150ms]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce [animation-delay:300ms]" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Suggested prompts, shown until the first message is sent */}
+                    {chatMessages.length === 1 && !isAssistantTyping && (
+                      <div className="pt-1 space-y-2">
+                        <p className="text-xs font-semibold">Try asking</p>
+                        <div className="flex flex-wrap gap-2">
+                          {CHAT_SUGGESTIONS.map((suggestion) => (
+                            <button
+                              key={suggestion}
+                              onClick={() => sendChatMessage(suggestion)}
+                              className="rounded-full border border-white/60 px-3 py-1.5 text-xs text-left hover:bg-[#A34A00] transition-colors cursor-pointer"
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Composer */}
+                  <div className="shrink-0 border-t border-white/20 p-3">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        sendChatMessage(chatInput);
+                      }}
+                      className="flex items-end gap-2 rounded-lg bg-white p-1.5"
+                    >
+                      <textarea
+                        aria-label="Message the AI assistant"
+                        rows={1}
+                        placeholder="Ask anything..."
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          // Enter sends, Shift+Enter adds a new line
+                          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                            e.preventDefault();
+                            sendChatMessage(chatInput);
+                          }
+                        }}
+                        className="flex-1 min-w-0 max-h-32 resize-none bg-transparent px-2 py-2 text-sm text-[#212529] placeholder-[#5C636A] focus:outline-none field-sizing-content"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!chatInput.trim() || isAssistantTyping}
+                        aria-label="Send message"
+                        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-md bg-[#212529] hover:bg-[#495057] text-white transition-colors cursor-pointer disabled:bg-[#2125290F] disabled:text-[#868E96] disabled:cursor-not-allowed"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </form>
+                    <p className="mt-2 text-[11px] leading-4">AI can make mistakes. Check important info.</p>
+                  </div>
+                </aside>
+              </>
+            )}
           </div>
 
           {isModalOpen && (
