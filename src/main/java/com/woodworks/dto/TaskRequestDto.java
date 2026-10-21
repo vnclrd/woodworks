@@ -12,6 +12,9 @@ public class TaskRequestDto {
     private String description;
     private boolean completed;
 
+    private boolean pinned;
+    private boolean urgent;
+
     // 3. Getters and Setters
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -21,4 +24,10 @@ public class TaskRequestDto {
 
     public boolean isCompleted() { return completed; }
     public void setCompleted(boolean completed) { this.completed = completed; }
+
+    public boolean isPinned() { return pinned; }
+    public void setPinned(boolean pinned) { this.pinned = pinned; }
+
+    public boolean isUrgent() { return urgent; }
+    public void setUrgent(boolean urgent) { this.urgent = urgent; }
 }

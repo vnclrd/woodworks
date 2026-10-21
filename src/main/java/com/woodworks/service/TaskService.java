@@ -52,7 +52,9 @@ public class TaskService {
         Task task = new Task(requestDto.getTitle(), requestDto.getDescription(), requestDto.isCompleted());
         task.setUser(user);
         
-        // Set completedAt if created as already completed
+        task.setPinned(requestDto.isPinned());
+        task.setUrgent(requestDto.isUrgent());
+        
         if (requestDto.isCompleted()) {
             task.setCompletedAt(LocalDateTime.now());
         }
@@ -73,7 +75,9 @@ public class TaskService {
         task.setTitle(requestDto.getTitle());
         task.setDescription(requestDto.getDescription());
         
-        // Handle completedAt timestamp toggle
+        task.setPinned(requestDto.isPinned());
+        task.setUrgent(requestDto.isUrgent());
+        
         if (requestDto.isCompleted() && !task.isCompleted()) {
             task.setCompletedAt(LocalDateTime.now());
         } else if (!requestDto.isCompleted()) {
@@ -102,7 +106,9 @@ public class TaskService {
                 task.getId(),
                 task.getTitle(),
                 task.getDescription(),
-                task.isCompleted()
+                task.isCompleted(),
+                task.isPinned(),
+                task.isUrgent()
         );
     }
 }
