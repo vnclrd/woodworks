@@ -1,10 +1,18 @@
-import { AlertTriangle, CheckCircle2, Circle, Pin, Flag, Pencil, Trash2, Plus, Repeat } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Circle, Pin, Flag, Pencil, Trash2, Plus, Repeat, Mic, MicOff } from 'lucide-react';
+import { useState } from 'react';
 import type { AppController } from '../../hooks/useAppController';
 
 type Props = { app: AppController };
 
 export default function MainContent({ app }: Props) {
-  const { isBackendOnline, fetchTasks, filterTitle, isFirstLoad, filteredTasks, searchQuery, filter, setFilter, setSelectedGroupId, setMobilePanel, mobilePanel, cardsSideBySide, dailyDoneCount, dailyTasks, today, tasks, toggleComplete, getTaskKey, openEditModal, togglePinned, toggleUrgent, setTaskToDelete, handleQuickAdd, quickTitle, setQuickTitle, allDailyDone, todayLabel, toggleDaily, deleteDaily, handleAddDaily, dailyTitle, setDailyTitle } = app;
+  const { isBackendOnline, fetchTasks, filterTitle, isFirstLoad, filteredTasks, searchQuery,
+          filter, setFilter, setSelectedGroupId, setMobilePanel, mobilePanel, cardsSideBySide,
+          dailyDoneCount, dailyTasks, today, tasks, toggleComplete, getTaskKey, openEditModal,
+          togglePinned, toggleUrgent, setTaskToDelete, handleQuickAdd, quickTitle, setQuickTitle,
+          allDailyDone, todayLabel, toggleDaily, deleteDaily, handleAddDaily, dailyTitle, setDailyTitle
+        } = app;
+
+  const [isListening, setIsListening] = useState(false);
   return (
   <main className="flex-1 min-w-0 min-h-0 flex flex-col px-4 sm:px-6 py-6">
     {!isBackendOnline && (
@@ -219,17 +227,58 @@ export default function MainContent({ app }: Props) {
         {!isFirstLoad && (
           <form
             onSubmit={handleQuickAdd}
-            className="shrink-0 flex items-center gap-3 px-4 h-12 border-t border-[#DEE2E6] bg-[#F8F9FA] focus-within:bg-white"
+            className="shrink-0 relative flex items-center gap-3 px-4 h-12 border-t border-[#DEE2E6] bg-[#F8F9FA] focus-within:bg-white"
           >
             <Plus className="w-5 h-5 text-[#5C636A] shrink-0" />
             <input
               type="text"
               aria-label="Task summary"
-              placeholder="Create a task and press Enter"
+              placeholder={isListening ? "Listening... speak your task summary" : "Create a task and press Enter"}
               value={quickTitle}
               onChange={(e) => setQuickTitle(e.target.value)}
               className="flex-1 bg-transparent text-sm placeholder-[#5C636A] focus:outline-none"
             />
+
+            {/* Microphone toggle button */}
+            <button
+              type="button"
+              onClick={() => setIsListening(!isListening)}
+              title={isListening ? "Stop listening" : "Add task via voice"}
+              aria-label={isListening ? "Stop listening" : "Add task via voice"}
+              className={`shrink-0 p-2 rounded-full transition-all cursor-pointer ${
+                isListening
+                  ? 'bg-[#C9372C] text-white animate-pulse'
+                  : 'text-[#5C636A] hover:text-[#212529] hover:bg-[#E9ECEF]'
+              }`}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+
+            {/* Listening Indicator Popover */}
+            {isListening && (
+              <div className="absolute right-3 bottom-14 z-20 flex items-center gap-3 px-4 py-2.5 bg-[#212529] text-white rounded-lg shadow-lg border border-white/10 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-[#4BCE97] animate-ping" />
+                  <span className="w-1.5 h-3 rounded-full bg-[#4BCE97] animate-pulse" />
+                  <span className="w-1.5 h-4 rounded-full bg-[#4BCE97] animate-pulse [animation-delay:150ms]" />
+                  <span className="w-1.5 h-2 rounded-full bg-[#4BCE97] animate-pulse [animation-delay:300ms]" />
+                </div>
+                <div className="text-xs">
+                  <p className="font-semibold text-white">Listening for task...</p>
+                  <p className="text-white/60 text-[11px]">Say your task title clearly</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsListening(false)}
+                  className="ml-1 text-xs text-white/50 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </button>
+                
+                {/* Pointer Arrow pointing to mic icon */}
+                <div className="absolute -bottom-1.5 right-4 w-3 h-3 bg-[#212529] rotate-45 border-r border-b border-white/10" />
+              </div>
+            )}
           </form>
         )}
       </div>
