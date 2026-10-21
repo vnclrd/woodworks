@@ -33,6 +33,9 @@ public class Task {
 
   private LocalDateTime completedAt;
 
+  private boolean pinned;
+  private boolean urgent;
+
   // 3. Default constructor (Required by JPA)
   public Task() {}
 
@@ -90,5 +93,20 @@ public class Task {
 
   public void setCompletedAt(LocalDateTime completedAt) {
     this.completedAt = completedAt;
+  }
+
+  public boolean isPinned() {
+    return pinned;
+  }
+
+  public void setPinned(boolean pinned) {
+    this.pinned = pinned;
+  }
+
+  public boolean isUrgent() {
+    return urgent;
+  }
+  public void setUrgent(boolean urgent) {
+    this.urgent = urgent;
   }
 }
