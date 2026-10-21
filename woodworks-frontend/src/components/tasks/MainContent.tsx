@@ -1,0 +1,327 @@
+import { AlertTriangle, CheckCircle2, Circle, Pin, Flag, Pencil, Trash2, Plus, Repeat } from 'lucide-react';
+import type { AppController } from '../../hooks/useAppController';
+
+type Props = { app: AppController };
+
+export default function MainContent({ app }: Props) {
+  const { isBackendOnline, fetchTasks, filterTitle, isFirstLoad, filteredTasks, searchQuery, filter, setFilter, setSelectedGroupId, setMobilePanel, mobilePanel, cardsSideBySide, dailyDoneCount, dailyTasks, today, tasks, toggleComplete, getTaskKey, openEditModal, togglePinned, toggleUrgent, setTaskToDelete, handleQuickAdd, quickTitle, setQuickTitle, allDailyDone, todayLabel, toggleDaily, deleteDaily, handleAddDaily, dailyTitle, setDailyTitle } = app;
+  return (
+  <main className="flex-1 min-w-0 min-h-0 flex flex-col px-4 sm:px-6 py-6">
+    {!isBackendOnline && (
+      <div className="shrink-0 mb-5 flex items-start gap-3 rounded border border-[#F5CD47] bg-[#FFF7D6] px-4 py-3 text-sm" role="status">
+        <AlertTriangle className="w-4 h-4 mt-0.5 text-[#946F00] shrink-0" />
+        <p className="flex-1">
+          <span className="font-semibold">Backend waking up / offline.</span>{' '}
+          Displaying cached tasks. Changes sync automatically once online.
+        </p>
+        <button
+          onClick={() => fetchTasks(false)}
+          className="shrink-0 h-7 px-2.5 rounded text-xs font-semibold text-[#212529] hover:bg-[#21252914] cursor-pointer"
+        >
+          Retry
+        </button>
+      </div>
+    )}
+
+    <div className="shrink-0 flex items-end justify-between gap-3 mb-4">
+      <div>
+        <p className="text-xs text-[#5C636A] mb-1">Tasks / {filterTitle}</p>
+        <h1 className="text-2xl font-semibold">{filterTitle}</h1>
+        {!isFirstLoad && (
+          <p className="text-sm text-[#5C636A] mt-1">
+            {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
+            {searchQuery && ` matching "${searchQuery}"`}
+          </p>
+        )}
+      </div>
+
+      <div className="md:hidden shrink-0 flex rounded border border-[#DEE2E6] bg-white overflow-hidden">
+        {['ALL', 'PENDING', 'URGENT', 'COMPLETED'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => { setFilter(tab); setSelectedGroupId(null); setMobilePanel('tasks'); }}
+            className={`px-2.5 h-8 text-xs font-medium cursor-pointer transition-colors ${
+              filter === tab
+                ? 'bg-[#212529] text-white'
+                : 'text-[#495057] hover:bg-[#2125290F]'
+            }`}
+          >
+            {tab.charAt(0) + tab.slice(1).toLowerCase()}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div className={`${cardsSideBySide ? 'hidden' : 'flex'} shrink-0 mb-3 w-fit rounded border border-[#DEE2E6] bg-white overflow-hidden`}>
+      {([
+        { key: 'tasks', label: 'Tasks' },
+        { key: 'daily', label: `Daily (${dailyDoneCount}/${dailyTasks.length})` },
+      ] as const).map(({ key, label }) => (
+        <button
+          key={key}
+          onClick={() => setMobilePanel(key)}
+          aria-pressed={mobilePanel === key}
+          className={`px-3 h-8 text-xs font-medium cursor-pointer transition-colors ${
+            mobilePanel === key
+              ? 'bg-[#212529] text-white'
+              : 'text-[#495057] hover:bg-[#2125290F]'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+
+    {/* Adjusted grid proportions: main task takes more space, daily tasks card is made smaller */}
+    <div className={`flex-1 min-h-0 grid grid-rows-[minmax(0,1fr)] gap-4 ${cardsSideBySide ? 'grid-cols-[minmax(0,3.2fr)_minmax(0,0.85fr)]' : 'grid-cols-1'}`}>
+      <div className={`${cardsSideBySide || mobilePanel === 'tasks' ? 'flex' : 'hidden'} @container min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}>
+        <div className="shrink-0 hidden @xl:grid grid-cols-[2rem_5rem_1fr_9rem_8rem] gap-3 px-4 h-10 items-center border-b border-[#DEE2E6] bg-[#F8F9FA] text-xs font-semibold text-[#5C636A]">
+          <span />
+          <span>Key</span>
+          <span>Summary</span>
+          <span>Status</span>
+          <span className="text-right">Actions</span>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {isFirstLoad ? (
+            <ul className="divide-y divide-[#DEE2E6]" aria-busy="true" aria-label="Loading tasks">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <li key={i} className="px-4 py-4 flex items-center gap-3 animate-pulse">
+                  <div className="w-5 h-5 rounded-full bg-[#DEE2E6]" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3.5 w-1/3 rounded bg-[#DEE2E6]" />
+                    <div className="h-3 w-1/2 rounded bg-[#E9ECEF]" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : filteredTasks.length === 0 ? (
+            <div className="py-14 text-center">
+              <p className="font-semibold">
+                {tasks.length === 0 ? 'No tasks yet' : 'No tasks match this view'}
+              </p>
+              <p className="text-sm text-[#5C636A] mt-1">
+                {tasks.length === 0
+                  ? 'Add your first task below or use Create.'
+                  : 'Clear the search or switch filters to see more.'}
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-[#DEE2E6]">
+              {filteredTasks.map((task) => {
+                const urgent = !task.completed && task.urgent;
+                const pinned = !task.completed && task.pinned;
+
+                return (
+                  <li
+                    key={task.id}
+                    className={`grid grid-cols-[2rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_9rem_8rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] transition-colors ${
+                      pinned ? 'bg-[#FFF9F0] shadow-[inset_3px_0_0_#D97706]' : urgent ? 'shadow-[inset_3px_0_0_#BF5700]' : ''
+                    }`}
+                  >
+                    <button
+                      onClick={() => toggleComplete(task)}
+                      aria-label={task.completed ? 'Mark as to do' : 'Mark as done'}
+                      className="text-[#5C636A] hover:text-[#1F845A] transition-colors cursor-pointer"
+                    >
+                      {task.completed ? (
+                        <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
+                      ) : (
+                        <Circle className="w-5 h-5" />
+                      )}
+                    </button>
+
+                    <span className="hidden @xl:block text-xs text-[#5C636A] font-medium">{getTaskKey(task)}</span>
+
+                    <button
+                      onClick={() => openEditModal(task)}
+                      title={task.title}
+                      className="min-w-0 text-left cursor-pointer"
+                    >
+                      <p className={`text-sm font-medium truncate hover:underline ${task.completed ? 'line-through text-[#5C636A]' : ''}`}>
+                        {pinned && <Pin className="inline w-3.5 h-3.5 mr-1 text-[#D97706]" />}
+                        {urgent && <Flag className="inline w-3.5 h-3.5 mr-1 text-[#BF5700]" />}
+                        {task.title}
+                      </p>
+                      {task.description && (
+                        <p className="text-xs text-[#5C636A] mt-0.5 truncate">{task.description}</p>
+                      )}
+                    </button>
+
+                    <div className="hidden @xl:flex items-center gap-1 min-w-0 flex-wrap">
+                      {pinned && (
+                        <span className="px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase bg-[#FEF3C7] text-[#B45309]">
+                          Pinned
+                        </span>
+                      )}
+                      {urgent && (
+                        <span className="px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase bg-[#FFEAD6] text-[#A34A00]">
+                          Urgent
+                        </span>
+                      )}
+                      <span
+                        className={`px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase ${
+                          task.completed
+                            ? 'bg-[#DCFFF1] text-[#216E4E]'
+                            : 'bg-[#E9ECEF] text-[#495057]'
+                        }`}
+                      >
+                        {task.completed ? 'Done' : 'To do'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-1">
+                      {!task.completed && (
+                        <>
+                          <button
+                            onClick={() => togglePinned(task)}
+                            title={pinned ? 'Unpin task' : 'Pin task to top'}
+                            className={`p-1.5 rounded cursor-pointer ${
+                              pinned ? 'text-[#B45309] bg-[#FEF3C7]' : 'text-[#495057] hover:bg-[#FEF3C7] hover:text-[#B45309]'
+                            }`}
+                          >
+                            <Pin className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => toggleUrgent(task)}
+                            title={urgent ? 'Remove urgent tag' : 'Mark as urgent'}
+                            className={`p-1.5 rounded cursor-pointer ${
+                              urgent ? 'text-[#A34A00] bg-[#FFEAD6]' : 'text-[#495057] hover:bg-[#FFEAD6] hover:text-[#A34A00]'
+                            }`}
+                          >
+                            <Flag className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => openEditModal(task)}
+                        aria-label="Edit task"
+                        className="p-1.5 rounded text-[#495057] hover:bg-[#21252914] cursor-pointer"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setTaskToDelete(task)}
+                        aria-label="Delete task"
+                        className="p-1.5 rounded text-[#495057] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {!isFirstLoad && (
+          <form
+            onSubmit={handleQuickAdd}
+            className="shrink-0 flex items-center gap-3 px-4 h-12 border-t border-[#DEE2E6] bg-[#F8F9FA] focus-within:bg-white"
+          >
+            <Plus className="w-5 h-5 text-[#5C636A] shrink-0" />
+            <input
+              type="text"
+              aria-label="Task summary"
+              placeholder="Create a task and press Enter"
+              value={quickTitle}
+              onChange={(e) => setQuickTitle(e.target.value)}
+              className="flex-1 bg-transparent text-sm placeholder-[#5C636A] focus:outline-none"
+            />
+          </form>
+        )}
+      </div>
+
+      <section
+        aria-label="Daily tasks"
+        className={`${cardsSideBySide || mobilePanel === 'daily' ? 'flex' : 'hidden'} min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}
+      >
+        <div className="shrink-0 px-4 py-3 border-b border-[#DEE2E6] bg-[#F8F9FA]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Repeat className="w-4 h-4 text-[#495057] shrink-0" />
+              <h2 className="text-sm font-semibold truncate">Daily tasks</h2>
+            </div>
+            <span className={`text-xs font-semibold shrink-0 ${allDailyDone ? 'text-[#216E4E]' : 'text-[#5C636A]'}`}>
+              {allDailyDone ? 'All done!' : `${dailyDoneCount}/${dailyTasks.length} today`}
+            </span>
+          </div>
+          <p className="text-xs text-[#5C636A] mt-0.5">Repeats every day · {todayLabel}</p>
+          <div className="h-1.5 mt-2.5 rounded-full bg-[#E9ECEF] overflow-hidden">
+            <div
+              className="h-full bg-[#1F845A] transition-[width] duration-300"
+              style={{ width: dailyTasks.length ? `${(dailyDoneCount / dailyTasks.length) * 100}%` : '0%' }}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {dailyTasks.length === 0 ? (
+            <div className="py-12 px-6 text-center">
+              <p className="font-semibold">No daily tasks yet</p>
+              <p className="text-sm text-[#5C636A] mt-1">
+                Add things you do every day, like reviewing emails or a morning stand-up.
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-[#DEE2E6]">
+              {dailyTasks.map((daily) => {
+                const done = daily.lastCompleted === today;
+
+                return (
+                  <li
+                    key={daily.id}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-[#F8F9FA] transition-colors group"
+                  >
+                    <button
+                      onClick={() => toggleDaily(daily)}
+                      aria-label={done ? 'Mark as not done today' : 'Mark as done today'}
+                      className="shrink-0 text-[#5C636A] hover:text-[#1F845A] transition-colors cursor-pointer"
+                    >
+                      {done ? (
+                        <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
+                      ) : (
+                        <Circle className="w-5 h-5" />
+                      )}
+                    </button>
+                    <span
+                      title={daily.title}
+                      className={`flex-1 min-w-0 truncate text-sm font-medium ${done ? 'line-through text-[#5C636A]' : ''}`}
+                    >
+                      {daily.title}
+                    </span>
+                    <button
+                      onClick={() => deleteDaily(daily.id)}
+                      aria-label="Remove daily task"
+                      className="shrink-0 p-1.5 rounded text-[#495057] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <form
+          onSubmit={handleAddDaily}
+          className="shrink-0 flex items-center gap-3 px-4 h-12 border-t border-[#DEE2E6] bg-[#F8F9FA] focus-within:bg-white"
+        >
+          <Plus className="w-5 h-5 text-[#5C636A] shrink-0" />
+          <input
+            type="text"
+            aria-label="Daily task summary"
+            placeholder="Add a daily task and press Enter"
+            value={dailyTitle}
+            onChange={(e) => setDailyTitle(e.target.value)}
+            className="flex-1 min-w-0 bg-transparent text-sm placeholder-[#5C636A] focus:outline-none"
+          />
+        </form>
+      </section>
+    </div>
+  </main>
+  );
+}
