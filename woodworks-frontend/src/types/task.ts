@@ -7,6 +7,7 @@ export interface Task {
   urgent?: boolean;
   /** Frontend-only until the backend stores task groups. */
   groupId?: string | null;
+  groupName?: string | null;
 }
 
 export interface TaskGroup {

@@ -15,6 +15,8 @@ public class TaskRequestDto {
     private boolean pinned;
     private boolean urgent;
 
+    private String groupName;
+
     // 3. Getters and Setters
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -30,4 +32,7 @@ public class TaskRequestDto {
 
     public boolean isUrgent() { return urgent; }
     public void setUrgent(boolean urgent) { this.urgent = urgent; }
+
+    public String getGroupName() { return groupName; }
+    public void setGroupName(String groupName) { this.groupName = groupName; }
 }

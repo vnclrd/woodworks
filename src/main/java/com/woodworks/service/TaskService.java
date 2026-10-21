@@ -54,6 +54,8 @@ public class TaskService {
         
         task.setPinned(requestDto.isPinned());
         task.setUrgent(requestDto.isUrgent());
+
+        task.setGroupName(requestDto.getGroupName());
         
         if (requestDto.isCompleted()) {
             task.setCompletedAt(LocalDateTime.now());
@@ -77,6 +79,8 @@ public class TaskService {
         
         task.setPinned(requestDto.isPinned());
         task.setUrgent(requestDto.isUrgent());
+
+        task.setGroupName(requestDto.getGroupName());
         
         if (requestDto.isCompleted() && !task.isCompleted()) {
             task.setCompletedAt(LocalDateTime.now());
@@ -108,7 +112,8 @@ public class TaskService {
                 task.getDescription(),
                 task.isCompleted(),
                 task.isPinned(),
-                task.isUrgent()
+                task.isUrgent(),
+                task.getGroupName()
         );
     }
 }

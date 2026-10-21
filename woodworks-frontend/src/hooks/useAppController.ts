@@ -18,6 +18,7 @@ import type { ChatMessage, DailyTask, Task, TaskGroup, Toast } from '../types/ta
 import { getTodayKey, loadJSON } from '../utils/storage';
 import { mergeLocalGroupAssignments } from '../utils/taskGroups';
 import { useMediaQuery } from './useMediaQuery';
+import { fetchGroupsApi, createGroupApi, deleteGroupApi } from '../services/woodworksApi';
 
 export function useAppController() {
   const [token, setToken] = useState<string | null>(
@@ -95,7 +96,7 @@ export function useAppController() {
     localStorage.setItem(TASK_GROUP_ASSIGNMENTS_KEY, JSON.stringify(assignments));
   };
 
-  const handleCreateGroup = (e: React.FormEvent) => {
+  const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = groupNameInput.trim();
     if (!name) return;
@@ -104,14 +105,30 @@ export function useAppController() {
       return;
     }
 
-    const newGroup = { id: `group_${Date.now()}`, name };
-    setGroups((previous) => [...previous, newGroup]);
-    setSelectedGroupId(newGroup.id);
-    setFilter('ALL');
-    setMobilePanel('tasks');
-    setGroupNameInput('');
-    setIsGroupModalOpen(false);
-    showToast(`Group “${name}” created`);
+    if (isDemoMode) {
+      const newGroup = { id: `group_${Date.now()}`, name };
+      setGroups((previous) => [...previous, newGroup]);
+      setSelectedGroupId(newGroup.id);
+      setFilter('ALL');
+      setMobilePanel('tasks');
+      setGroupNameInput('');
+      setIsGroupModalOpen(false);
+      showToast(`Group “${name}” created (Demo Mode)`);
+      return;
+    }
+
+    try {
+      const newGroup = await createGroupApi(token!, name);
+      setGroups((previous) => [...previous, newGroup]);
+      setSelectedGroupId(newGroup.id);
+      setFilter('ALL');
+      setMobilePanel('tasks');
+      setGroupNameInput('');
+      setIsGroupModalOpen(false);
+      showToast(`Group “${name}” created`);
+    } catch (err) {
+      showToast("Couldn't create the group. Try again.", 'error');
+    }
   };
 
   const handleChangePasswordPreview = (e: React.FormEvent) => {
@@ -224,6 +241,11 @@ export function useAppController() {
     if (isDemoMode || token) {
       fetchTasks();
       fetchDailyTasks();
+      if (!isDemoMode && token) {
+        fetchGroupsApi(token)
+          .then(data => setGroups(data))
+          .catch(err => console.warn('Could not fetch groups from backend.', err));
+      }
     }
   }, [token]);
 
@@ -280,7 +302,15 @@ export function useAppController() {
 
       if (!response.ok) throw new Error('Backend offline');
       const data = await response.json();
-      let hydratedTasks = mergeLocalGroupAssignments(data, TASK_GROUP_ASSIGNMENTS_KEY);
+      // Map task.groupName to task.groupId using the current groups list
+      const mappedData = data.map((task: any) => {
+        const matchedGroup = groups.find(g => g.name === task.groupName);
+        return {
+          ...task,
+          groupId: matchedGroup ? matchedGroup.id : (task.groupId || null)
+        };
+      });
+      let hydratedTasks = mergeLocalGroupAssignments(mappedData, TASK_GROUP_ASSIGNMENTS_KEY);
       if (pendingGroupAssignment) {
         const newlyCreatedMatch = hydratedTasks
           .filter((task) => task.title === pendingGroupAssignment.title && !pendingGroupAssignment.previousTaskIds.includes(task.id))
@@ -443,6 +473,9 @@ export function useAppController() {
         const method = isEditing ? 'PUT' : 'POST';
         const url = isEditing ? `${API_BASE_URL}/${currentTask.id}` : API_BASE_URL;
 
+        const matchedGroup = groups.find(g => String(g.id) === String(currentTask.groupId));
+        const groupNameValue = matchedGroup ? matchedGroup.name : null;
+
         const response = await fetch(url, {
           method,
           headers: { 
@@ -454,7 +487,8 @@ export function useAppController() {
             description: currentTask.description,
             completed: currentTask.completed,
             pinned: currentTask.pinned ?? false,
-            urgent: currentTask.urgent ?? false
+            urgent: currentTask.urgent ?? false,
+            groupName: groupNameValue
           })
         });
 
@@ -508,13 +542,23 @@ export function useAppController() {
 
     if (isBackendOnline) {
       try {
+        const activeGroup = groups.find(g => String(g.id) === String(selectedGroupId));
+        const groupNameValue = activeGroup ? activeGroup.name : null;
+
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ title, description: '', completed: false, pinned: false, urgent: false })
+          body: JSON.stringify({ 
+            title, 
+            description: '', 
+            completed: false, 
+            pinned: false, 
+            urgent: false, 
+            groupName: groupNameValue 
+          })
         });
         if (response.ok) {
           let savedTask: any = null;
@@ -737,7 +781,13 @@ export function useAppController() {
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesGroup = !selectedGroupId || task.groupId === selectedGroupId;
+    
+    // Find the currently selected group object to compare names if needed
+    const selectedGroup = groups.find(g => String(g.id) === String(selectedGroupId));
+    const matchesGroup = !selectedGroupId || 
+      String(task.groupId) === String(selectedGroupId) || 
+      (selectedGroup && task.groupName === selectedGroup.name);
+      
     if (!matchesSearch || !matchesGroup) return false;
     if (filter === 'PENDING') return !task.completed;
     if (filter === 'COMPLETED') return task.completed;

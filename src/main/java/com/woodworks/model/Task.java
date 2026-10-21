@@ -36,6 +36,8 @@ public class Task {
   private boolean pinned;
   private boolean urgent;
 
+  private String groupName;
+
   // 3. Default constructor (Required by JPA)
   public Task() {}
 
@@ -47,66 +49,30 @@ public class Task {
   }
 
   // 4. Getters and Setters
-  public long getId() {
-    return id;
-  }
+  public long getId() { return id; }
+  public void setId(Long id) { this.id = id; }
 
-  public void setId(Long id) {
-    this.id = id;
-  }
+  public String getTitle() { return title; }
+  public void setTitle(String title) { this.title = title; }
 
-  public String getTitle() {
-    return title;
-  }
+  public String getDescription() { return description; }
+  public void setDescription(String description) { this.description = description; }
 
-  public void setTitle(String title) {
-    this.title = title;
-  }
+  public boolean isCompleted() { return completed; }
+  public void setCompleted(boolean completed) { this.completed = completed; }
 
-  public String getDescription() {
-    return description;
-  }
+  public User getUser() { return user; }
+  public void setUser(User user) { this.user = user; }
 
-  public void setDescription(String description) {
-    this.description = description;
-  }
+  public LocalDateTime getCompletedAt() { return completedAt; }
+  public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
 
-  public boolean isCompleted() {
-    return completed;
-  }
+  public boolean isPinned() { return pinned; }
+  public void setPinned(boolean pinned) { this.pinned = pinned; }
 
-  public void setCompleted(boolean completed) {
-    this.completed = completed;
-  }
+  public boolean isUrgent() { return urgent; }
+  public void setUrgent(boolean urgent) { this.urgent = urgent; }
 
-  public User getUser() {
-    return user;
-  }
-
-  public void setUser(User user) {
-    this.user = user;
-  }
-
-  public LocalDateTime getCompletedAt() {
-    return completedAt;
-  }
-
-  public void setCompletedAt(LocalDateTime completedAt) {
-    this.completedAt = completedAt;
-  }
-
-  public boolean isPinned() {
-    return pinned;
-  }
-
-  public void setPinned(boolean pinned) {
-    this.pinned = pinned;
-  }
-
-  public boolean isUrgent() {
-    return urgent;
-  }
-  public void setUrgent(boolean urgent) {
-    this.urgent = urgent;
-  }
+  public String getGroupName() { return groupName; }
+  public void setGroupName(String groupName) { this.groupName = groupName; }
 }

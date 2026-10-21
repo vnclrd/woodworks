@@ -62,7 +62,7 @@ export default function Sidebar({ app }: Props) {
         <p className="px-2.5 py-2 text-xs leading-5 text-white/45">Create a group to organize related tasks.</p>
       ) : groups.map((group) => {
         const active = selectedGroupId === group.id;
-        const count = tasks.filter((task) => task.groupId === group.id).length;
+        const count = tasks.filter((task) => String(task.groupId) === String(group.id) || task.groupName === group.name).length;
         return (
           <button
             key={group.id}
