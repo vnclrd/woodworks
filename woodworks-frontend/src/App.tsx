@@ -10,12 +10,12 @@ const isDemoMode = urlParams.get('demo') === 'true' || (import.meta as any).env.
 
 const BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'https://woodworks-backend-75805996486.asia-southeast1.run.app';
 const API_BASE_URL = `${BASE_URL.replace(/\/$/, '')}/api/tasks`;
+const DAILY_API_BASE_URL = `${BASE_URL.replace(/\/$/, '')}/api/daily-tasks`;
 
 const TOKEN_KEY = 'woodworks_token';
 const TASKS_CACHE_KEY = 'woodworks_tasks_cache';
 
-// Urgent tags and daily tasks are frontend-only for now, so they are stored in this browser.
-// Demo mode uses separate keys so it never mixes with real data.
+// Urgent tags remain browser-cached; daily tasks now sync via backend API
 const URGENT_KEY = isDemoMode ? 'woodworks_demo_urgent_ids' : 'woodworks_urgent_ids';
 const DAILY_KEY = isDemoMode ? 'woodworks_demo_daily_tasks' : 'woodworks_daily_tasks';
 
@@ -103,11 +103,8 @@ export default function App() {
     return Array.isArray(saved) ? saved : [];
   });
 
-  // Daily tasks card (UI-only: stored in this browser)
-  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>(() => {
-    const saved = loadJSON<unknown>(DAILY_KEY, []);
-    return Array.isArray(saved) ? saved : [];
-  });
+  // Daily tasks card (Synced with Spring Boot / Neon Database)
+  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
   const [dailyTitle, setDailyTitle] = useState('');
   const [today, setToday] = useState(getTodayKey());
 
@@ -191,6 +188,7 @@ export default function App() {
     localStorage.removeItem(TASKS_CACHE_KEY);
     setToken(null);
     setTasks([]);
+    setDailyTasks([]);
   };
 
   const handleLogout = () => {
@@ -198,10 +196,11 @@ export default function App() {
     showToast('Logged out');
   };
 
-  // Fetch tasks on mount & sync cache
+  // Fetch tasks and daily tasks on mount & sync cache
   useEffect(() => {
     if (isDemoMode || token) {
       fetchTasks();
+      fetchDailyTasks();
     }
   }, [token]);
 
@@ -211,14 +210,10 @@ export default function App() {
     }
   }, [tasks]);
 
-  // Persist UI-only data
+  // Persist UI-only urgent data
   useEffect(() => {
     localStorage.setItem(URGENT_KEY, JSON.stringify(urgentIds));
   }, [urgentIds]);
-
-  useEffect(() => {
-    localStorage.setItem(DAILY_KEY, JSON.stringify(dailyTasks));
-  }, [dailyTasks]);
 
   // Roll the daily checklist over at midnight even if the tab stays open
   useEffect(() => {
@@ -284,6 +279,121 @@ export default function App() {
     }
   };
 
+  // --- Backend-Integrated Daily Tasks Handlers ---
+  const fetchDailyTasks = async () => {
+    if (isDemoMode) {
+      const saved = loadJSON<unknown>(DAILY_KEY, []);
+      setDailyTasks(Array.isArray(saved) ? saved : []);
+      return;
+    }
+
+    try {
+      const response = await fetch(DAILY_API_BASE_URL, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDailyTasks(data);
+      }
+    } catch (err) {
+      console.warn('Could not fetch daily tasks from backend.');
+    }
+  };
+
+  const handleAddDaily = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = dailyTitle.trim();
+    if (!title) return;
+
+    if (isDemoMode) {
+      const updated = [...dailyTasks, { id: Date.now(), title, lastCompleted: null }];
+      setDailyTasks(updated);
+      localStorage.setItem(DAILY_KEY, JSON.stringify(updated));
+      setDailyTitle('');
+      showToast('Daily task added (Demo Mode)');
+      return;
+    }
+
+    try {
+      const response = await fetch(DAILY_API_BASE_URL, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ title, lastCompleted: null })
+      });
+
+      if (response.ok) {
+        setDailyTitle('');
+        fetchDailyTasks();
+        showToast('Daily task added');
+      } else {
+        showToast("Couldn't add daily task.", 'error');
+      }
+    } catch (err) {
+      showToast("Couldn't reach the server.", 'error');
+    }
+  };
+
+  const toggleDaily = async (daily: DailyTask) => {
+    const newLastCompleted = daily.lastCompleted === today ? null : today;
+    const updatedTask = { ...daily, lastCompleted: newLastCompleted };
+
+    if (isDemoMode) {
+      const updatedList = dailyTasks.map(d => d.id === daily.id ? updatedTask : d);
+      setDailyTasks(updatedList);
+      localStorage.setItem(DAILY_KEY, JSON.stringify(updatedList));
+      return;
+    }
+
+    try {
+      const response = await fetch(`${DAILY_API_BASE_URL}/${daily.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedTask)
+      });
+
+      if (response.ok) {
+        setDailyTasks(prev => prev.map(d => d.id === daily.id ? updatedTask : d));
+      } else {
+        showToast("Couldn't update daily task.", 'error');
+      }
+    } catch (err) {
+      showToast("Couldn't reach the server.", 'error');
+    }
+  };
+
+  const deleteDaily = async (id: number) => {
+    if (isDemoMode) {
+      const updatedList = dailyTasks.filter(d => d.id !== id);
+      setDailyTasks(updatedList);
+      localStorage.setItem(DAILY_KEY, JSON.stringify(updatedList));
+      showToast('Daily task removed (Demo Mode)');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${DAILY_API_BASE_URL}/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        setDailyTasks(prev => prev.filter(d => d.id !== id));
+        showToast('Daily task removed');
+      } else {
+        showToast("Couldn't delete daily task.", 'error');
+      }
+    } catch (err) {
+      showToast("Couldn't reach the server.", 'error');
+    }
+  };
+  // ---------------------------------------------
+
   // Used by demo mode and offline mode (no backend involved)
   const saveTaskLocally = (toastSuffix = '') => {
     if (isEditing) {
@@ -313,7 +423,6 @@ export default function App() {
         const method = isEditing ? 'PUT' : 'POST';
         const url = isEditing ? `${API_BASE_URL}/${currentTask.id}` : API_BASE_URL;
 
-        // The request body is unchanged: "urgent" is not sent to the backend
         const response = await fetch(url, {
           method,
           headers: { 
@@ -328,8 +437,6 @@ export default function App() {
         });
 
         if (response.ok) {
-          // Remember the urgent tag locally, keyed by the task's ID.
-          // For a new task, the ID comes from the backend's response (if it returns the created task).
           let savedId: number | null = isEditing ? currentTask.id : null;
           if (!isEditing) {
             try {
@@ -461,27 +568,6 @@ export default function App() {
     showToast(next ? 'Marked as urgent' : 'Urgent tag removed');
   };
 
-  // Daily tasks (frontend only)
-  const handleAddDaily = (e: React.FormEvent) => {
-    e.preventDefault();
-    const title = dailyTitle.trim();
-    if (!title) return;
-    setDailyTasks(prev => [...prev, { id: Date.now(), title, lastCompleted: null }]);
-    setDailyTitle('');
-    showToast('Daily task added');
-  };
-
-  const toggleDaily = (id: number) => {
-    setDailyTasks(prev =>
-      prev.map(d => d.id === id ? { ...d, lastCompleted: d.lastCompleted === today ? null : today } : d)
-    );
-  };
-
-  const deleteDaily = (id: number) => {
-    setDailyTasks(prev => prev.filter(d => d.id !== id));
-    showToast('Daily task removed');
-  };
-
   const openCreateModal = () => {
     setCurrentTask({ id: null, title: '', description: '', completed: false });
     setCurrentUrgent(false);
@@ -573,7 +659,6 @@ export default function App() {
   const authInputClass =
     'w-full h-11 bg-white border-2 border-[#DEE2E6] hover:bg-[#F8F9FA] rounded px-3 text-sm placeholder-[#5C636A] focus:outline-none focus:border-[#212529] focus:bg-white';
 
-  // Toast sits just below the header's Create/Logout buttons (the demo banner pushes the header down)
   const isAuthScreen = !isDemoMode && !token;
   const toastPosition = isAuthScreen ? 'top-4' : isDemoMode ? 'top-[6.4rem]' : 'top-[4.25rem]';
 
@@ -819,7 +904,7 @@ export default function App() {
 
             <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
               <button
-                onClick={() => fetchTasks(false)}
+                onClick={() => { fetchTasks(false); fetchDailyTasks(); }}
                 title="Refresh tasks"
                 aria-label="Refresh tasks"
                 className="h-9 w-9 flex items-center justify-center rounded text-[#495057] hover:bg-[#2125290F] transition-colors cursor-pointer"
@@ -1002,7 +1087,6 @@ export default function App() {
                     ) : (
                       <ul className="divide-y divide-[#DEE2E6]">
                         {filteredTasks.map((task) => {
-                          // Urgent only matters while the task is unfinished
                           const urgent = isUrgent(task) && !task.completed;
 
                           return (
@@ -1032,7 +1116,6 @@ export default function App() {
                                 className="min-w-0 text-left cursor-pointer"
                               >
                                 <p className={`text-sm font-medium truncate hover:underline ${task.completed ? 'line-through text-[#5C636A]' : ''}`}>
-                                  {/* Status column is hidden on phones, so show a small flag there */}
                                   {urgent && <Flag className="sm:hidden inline w-3.5 h-3.5 mr-1 -mt-0.5 text-[#BF5700]" aria-label="Urgent" />}
                                   {task.title}
                                 </p>
@@ -1115,7 +1198,7 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Daily tasks card: repeats every day, resets automatically at midnight */}
+                {/* Daily tasks card: connected to Neon backend */}
                 <section
                   aria-label="Daily tasks"
                   className={`${mobilePanel === 'daily' ? 'flex' : 'hidden'} xl:flex min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}
@@ -1158,7 +1241,7 @@ export default function App() {
                               className="flex items-center gap-3 px-4 py-3 hover:bg-[#F8F9FA] transition-colors group"
                             >
                               <button
-                                onClick={() => toggleDaily(daily.id)}
+                                onClick={() => toggleDaily(daily)}
                                 aria-label={done ? 'Mark as not done today' : 'Mark as done today'}
                                 className="shrink-0 text-[#5C636A] hover:text-[#1F845A] transition-colors cursor-pointer"
                               >
