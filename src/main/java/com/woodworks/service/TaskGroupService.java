@@ -2,9 +2,11 @@ package com.woodworks.service;
 
 import com.woodworks.dto.TaskGroupRequestDto;
 import com.woodworks.dto.TaskGroupResponseDto;
+import com.woodworks.model.Task;
 import com.woodworks.model.TaskGroup;
 import com.woodworks.model.User;
 import com.woodworks.repository.TaskGroupRepository;
+import com.woodworks.repository.TaskRepository;
 import com.woodworks.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -16,10 +18,12 @@ public class TaskGroupService {
 
     private final TaskGroupRepository taskGroupRepository;
     private final UserRepository userRepository;
+    private final TaskRepository taskRepository;
 
-    public TaskGroupService(TaskGroupRepository taskGroupRepository, UserRepository userRepository) {
+    public TaskGroupService(TaskGroupRepository taskGroupRepository, UserRepository userRepository, TaskRepository taskRepository) {
         this.taskGroupRepository = taskGroupRepository;
         this.userRepository = userRepository;
+        this.taskRepository = taskRepository;
     }
 
     private User getUserByEmail(String email) {
@@ -50,6 +54,13 @@ public class TaskGroupService {
 
         if (!group.getUser().getId().equals(user.getId())) {
             throw new RuntimeException("Unauthorized access to group");
+        }
+
+        // Unassign tasks from this group so they move to "No group" instead of being deleted
+        List<Task> tasksInGroup = taskRepository.findByUserAndGroupName(user, group.getName());
+        for (Task task : tasksInGroup) {
+            task.setGroupName(null);
+            taskRepository.save(task);
         }
 
         taskGroupRepository.delete(group);

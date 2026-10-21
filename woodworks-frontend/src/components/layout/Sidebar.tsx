@@ -1,12 +1,18 @@
-import { SquareCheckBig, FolderPlus, Folder, Settings } from 'lucide-react';
+import { SquareCheckBig, FolderPlus, Folder, Settings, Trash2, AlertTriangle, X } from 'lucide-react';
 import type { AppController } from '../../hooks/useAppController';
 
 type Props = { app: AppController };
 
 export default function Sidebar({ app }: Props) {
-  const { navItems, selectedGroupId, filter, setFilter, setSelectedGroupId, setMobilePanel, setGroupNameInput, setIsGroupModalOpen, groups, tasks, completedCount, setIsAccountManagerOpen } = app;
+  const { 
+    navItems, selectedGroupId, filter, setFilter, setSelectedGroupId, 
+    setMobilePanel, setGroupNameInput, setIsGroupModalOpen, groups, tasks, 
+    completedCount, setIsAccountManagerOpen, handleDeleteGroup,
+    groupToDelete, setGroupToDelete 
+  } = app;
+
   return (
-  <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#212529] border-r border-white/10 p-3 overflow-hidden">
+  <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#212529] border-r border-white/10 p-3 overflow-hidden relative">
     <div className="shrink-0 flex items-center gap-3 px-2 py-3 mb-2">
       <div className="w-9 h-9 rounded bg-white/10 text-white flex items-center justify-center">
         <SquareCheckBig className="w-5 h-5" />
@@ -64,23 +70,40 @@ export default function Sidebar({ app }: Props) {
         const active = selectedGroupId === group.id;
         const count = tasks.filter((task) => String(task.groupId) === String(group.id) || task.groupName === group.name).length;
         return (
-          <button
+          <div
             key={group.id}
-            onClick={() => { setSelectedGroupId(group.id); setFilter('ALL'); setMobilePanel('tasks'); }}
-            aria-current={active ? 'page' : undefined}
-            title={group.name}
-            className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded text-sm transition-colors cursor-pointer ${
+            className={`flex items-center gap-1 w-full h-9 rounded px-2 text-sm transition-colors ${
               active
                 ? 'bg-[#495057] text-white font-semibold'
                 : 'text-white/70 hover:bg-[#495057] hover:text-white'
             }`}
           >
-            <Folder className="w-4 h-4 shrink-0" />
-            <span className="flex-1 min-w-0 text-left truncate">{group.name}</span>
-            <span className={`text-xs rounded-full px-2 py-0.5 text-white ${active ? 'bg-white/20' : 'bg-white/10'}`}>
-              {count}
-            </span>
-          </button>
+            <button
+              onClick={() => { setSelectedGroupId(group.id); setFilter('ALL'); setMobilePanel('tasks'); }}
+              aria-current={active ? 'page' : undefined}
+              title={group.name}
+              className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer"
+            >
+              <Folder className="w-4 h-4 shrink-0" />
+              <span className="flex-1 min-w-0 truncate">{group.name}</span>
+              <span className={`text-xs rounded-full px-2 py-0.5 text-white ${active ? 'bg-white/20' : 'bg-white/10'}`}>
+                {count}
+              </span>
+            </button>
+
+            {/* Always visible trash button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setGroupToDelete(group);
+              }}
+              className="p-1 text-white/40 hover:text-red-400 hover:bg-white/10 rounded transition-colors cursor-pointer shrink-0"
+              title="Delete group"
+              aria-label={`Delete group ${group.name}`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         );
       })}
     </div>
@@ -105,6 +128,53 @@ export default function Sidebar({ app }: Props) {
         <span>Account manager</span>
       </button>
     </div>
+
+    {/* Custom Delete Confirmation Modal */}
+    {groupToDelete && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2125298A]" onClick={() => setGroupToDelete(null)}>
+        <div 
+          className="bg-white rounded-md w-full max-w-sm shadow-[0_8px_12px_#21252926,0_0_1px_#2125294F] p-6 text-[#212529]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-9 h-9 rounded-full bg-red-100 text-[#C9372C] flex items-center justify-center">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <button 
+              onClick={() => setGroupToDelete(null)}
+              className="p-1.5 rounded text-[#495057] hover:bg-[#2125290F] cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <h3 className="text-lg font-semibold mb-1">Delete group &ldquo;{groupToDelete.name}&rdquo;?</h3>
+          <p className="text-xs text-[#5C636A] leading-relaxed mb-5">
+            Tasks inside this group will be moved to <strong className="text-[#212529]">&quot;No group&quot;</strong> and will not be deleted.
+          </p>
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setGroupToDelete(null)}
+              className="h-9 px-3 rounded text-sm font-medium text-[#495057] hover:bg-[#2125290F] cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleDeleteGroup(groupToDelete.id);
+                setGroupToDelete(null);
+              }}
+              className="h-9 px-3 rounded bg-[#C9372C] hover:bg-[#A62C22] text-white text-sm font-medium transition-colors cursor-pointer"
+            >
+              Delete group
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </aside>
   );
 }

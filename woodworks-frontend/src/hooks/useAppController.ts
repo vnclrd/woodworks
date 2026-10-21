@@ -47,6 +47,7 @@ export function useAppController() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [groupNameInput, setGroupNameInput] = useState('');
+  const [groupToDelete, setGroupToDelete] = useState<TaskGroup | null>(null);
 
   const [isAccountManagerOpen, setIsAccountManagerOpen] = useState(false);
   const [currentPasswordInput, setCurrentPasswordInput] = useState('');
@@ -128,6 +129,27 @@ export function useAppController() {
       showToast(`Group “${name}” created`);
     } catch (err) {
       showToast("Couldn't create the group. Try again.", 'error');
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string | number) => {
+    if (isDemoMode) {
+      setGroups(groups.filter(g => g.id !== groupId));
+      // Unassign tasks locally in demo mode
+      setTasks(tasks.map(t => String(t.groupId) === String(groupId) ? { ...t, groupId: null, groupName: null } : t));
+      setSelectedGroupId(null);
+      showToast('Group deleted. Tasks moved to "No group".');
+      return;
+    }
+
+    try {
+      await deleteGroupApi(token!, Number(groupId));
+      setGroups(prev => prev.filter(g => String(g.id) !== String(groupId)));
+      setSelectedGroupId(null);
+      fetchTasks(true);
+      showToast('Group deleted. Tasks moved to "No group".');
+    } catch (err) {
+      showToast("Couldn't delete the group. Try again.", 'error');
     }
   };
 
@@ -876,8 +898,8 @@ export function useAppController() {
     isLargeScreen, hasRoomForBothCardsWithChat, hasRoomForBothCardsWithRail,
     isChatOpen, setIsChatOpen, chatMessages, setChatMessages, chatInput, setChatInput,
     isAssistantTyping, setIsAssistantTyping, chatScrollRef, chatTimerRef, showToast,
-    sortOrder, setSortOrder, saveGroupAssignment, handleCreateGroup,
-    handleChangePasswordPreview, handleDeleteAccountPreview, switchAuthView,
+    sortOrder, setSortOrder, saveGroupAssignment, handleCreateGroup, handleDeleteGroup, groupToDelete, 
+    setGroupToDelete, handleChangePasswordPreview, handleDeleteAccountPreview, switchAuthView,
     handleAuthSubmit, clearSession, handleLogout, fetchTasks, fetchDailyTasks,
     handleAddDaily, toggleDaily, deleteDaily, handleSaveTask, handleQuickAdd,
     handleDeleteTask, toggleComplete, toggleUrgent, togglePinned, sendChatMessage,
