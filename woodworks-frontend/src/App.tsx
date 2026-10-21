@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2, Circle, Plus, Trash2, Pencil, Search,
   RefreshCw, ListTodo, CheckSquare, Clock, X, AlertTriangle, SquareCheckBig,
-  Eye, EyeOff, LogOut
+  Eye, EyeOff, LogOut, Flag, Repeat
 } from 'lucide-react';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -14,6 +14,11 @@ const API_BASE_URL = `${BASE_URL.replace(/\/$/, '')}/api/tasks`;
 const TOKEN_KEY = 'woodworks_token';
 const TASKS_CACHE_KEY = 'woodworks_tasks_cache';
 
+// Urgent tags and daily tasks are frontend-only for now, so they are stored in this browser.
+// Demo mode uses separate keys so it never mixes with real data.
+const URGENT_KEY = isDemoMode ? 'woodworks_demo_urgent_ids' : 'woodworks_urgent_ids';
+const DAILY_KEY = isDemoMode ? 'woodworks_demo_daily_tasks' : 'woodworks_daily_tasks';
+
 interface Task {
   id: number | null;
   title: string;
@@ -21,9 +26,30 @@ interface Task {
   completed: boolean;
 }
 
+interface DailyTask {
+  id: number;
+  title: string;
+  lastCompleted: string | null; // local date (YYYY-MM-DD) it was last checked off; resets itself each day
+}
+
 interface Toast {
   message: string;
   type: 'success' | 'error';
+}
+
+function loadJSON<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// Local calendar date, e.g. "2026-10-21"
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export default function App() {
@@ -52,7 +78,7 @@ export default function App() {
     }
   });
 
-  const [filter, setFilter] = useState('ALL'); // ALL, PENDING, COMPLETED
+  const [filter, setFilter] = useState('ALL'); // ALL, PENDING, URGENT, COMPLETED
   const [searchQuery, setSearchQuery] = useState('');
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   
@@ -70,9 +96,36 @@ export default function App() {
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
 
+  // Urgent tag (UI-only: stored by task ID in this browser, never sent to the backend)
+  const [currentUrgent, setCurrentUrgent] = useState(false);
+  const [urgentIds, setUrgentIds] = useState<number[]>(() => {
+    const saved = loadJSON<unknown>(URGENT_KEY, []);
+    return Array.isArray(saved) ? saved : [];
+  });
+
+  // Daily tasks card (UI-only: stored in this browser)
+  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>(() => {
+    const saved = loadJSON<unknown>(DAILY_KEY, []);
+    return Array.isArray(saved) ? saved : [];
+  });
+  const [dailyTitle, setDailyTitle] = useState('');
+  const [today, setToday] = useState(getTodayKey());
+
+  // Which card is visible on screens too narrow to show both side by side
+  const [mobilePanel, setMobilePanel] = useState<'tasks' | 'daily'>('tasks');
+
   const showToast = (message: string, type: Toast['type'] = 'success') => setToast({ message, type });
 
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
+  const isUrgent = (task: Task) => task.id !== null && urgentIds.includes(task.id);
+
+  const setUrgentFlag = (id: number | null, urgent: boolean) => {
+    if (id === null) return;
+    setUrgentIds(prev =>
+      urgent ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter(x => x !== id)
+    );
+  };
 
   const switchAuthView = (view: 'login' | 'register') => {
     setAuthView(view);
@@ -158,6 +211,21 @@ export default function App() {
     }
   }, [tasks]);
 
+  // Persist UI-only data
+  useEffect(() => {
+    localStorage.setItem(URGENT_KEY, JSON.stringify(urgentIds));
+  }, [urgentIds]);
+
+  useEffect(() => {
+    localStorage.setItem(DAILY_KEY, JSON.stringify(dailyTasks));
+  }, [dailyTasks]);
+
+  // Roll the daily checklist over at midnight even if the tab stays open
+  useEffect(() => {
+    const timer = setInterval(() => setToday(getTodayKey()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Auto-dismiss toast
   useEffect(() => {
     if (!toast) return;
@@ -216,18 +284,26 @@ export default function App() {
     }
   };
 
+  // Used by demo mode and offline mode (no backend involved)
+  const saveTaskLocally = (toastSuffix = '') => {
+    if (isEditing) {
+      setTasks(tasks.map(t => t.id === currentTask.id ? currentTask : t));
+      setUrgentFlag(currentTask.id, currentUrgent);
+    } else {
+      const newId = Date.now();
+      setTasks([...tasks, { ...currentTask, id: newId }]);
+      setUrgentFlag(newId, currentUrgent);
+    }
+    closeModal();
+    showToast(`${isEditing ? 'Task updated' : 'Task created'}${toastSuffix}`);
+  };
+
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentTask.title.trim() || isSaving) return;
 
     if (isDemoMode) {
-      if (isEditing) {
-        setTasks(tasks.map(t => t.id === currentTask.id ? currentTask : t));
-      } else {
-        setTasks([...tasks, { ...currentTask, id: Date.now() }]);
-      }
-      closeModal();
-      showToast(isEditing ? 'Task updated (Demo Mode)' : 'Task created (Demo Mode)');
+      saveTaskLocally(' (Demo Mode)');
       return;
     }
 
@@ -237,6 +313,7 @@ export default function App() {
         const method = isEditing ? 'PUT' : 'POST';
         const url = isEditing ? `${API_BASE_URL}/${currentTask.id}` : API_BASE_URL;
 
+        // The request body is unchanged: "urgent" is not sent to the backend
         const response = await fetch(url, {
           method,
           headers: { 
@@ -251,6 +328,17 @@ export default function App() {
         });
 
         if (response.ok) {
+          // Remember the urgent tag locally, keyed by the task's ID.
+          // For a new task, the ID comes from the backend's response (if it returns the created task).
+          let savedId: number | null = isEditing ? currentTask.id : null;
+          if (!isEditing) {
+            try {
+              const saved = await response.json();
+              savedId = saved?.id ?? null;
+            } catch {}
+          }
+          setUrgentFlag(savedId, currentUrgent);
+
           fetchTasks(true);
           closeModal();
           showToast(isEditing ? 'Task updated' : 'Task created');
@@ -263,13 +351,7 @@ export default function App() {
         setIsSaving(false);
       }
     } else {
-      if (isEditing) {
-        setTasks(tasks.map(t => t.id === currentTask.id ? currentTask : t));
-      } else {
-        setTasks([...tasks, { ...currentTask, id: Date.now() }]);
-      }
-      closeModal();
-      showToast(isEditing ? 'Task updated' : 'Task created');
+      saveTaskLocally();
     }
   };
 
@@ -315,6 +397,7 @@ export default function App() {
   const handleDeleteTask = async (id: number | null) => {
     if (isDemoMode) {
       setTasks(tasks.filter(t => t.id !== id));
+      setUrgentFlag(id, false);
       showToast('Task deleted (Demo Mode)');
       return;
     }
@@ -329,6 +412,7 @@ export default function App() {
         });
         if (response.ok) {
           setTasks(tasks.filter(t => t.id !== id));
+          setUrgentFlag(id, false);
           showToast('Task deleted');
         } else {
           showToast("Couldn't delete the task. Try again.", 'error');
@@ -370,14 +454,44 @@ export default function App() {
     }
   };
 
+  // Quick urgent toggle from the row's action buttons
+  const toggleUrgent = (task: Task) => {
+    const next = !isUrgent(task);
+    setUrgentFlag(task.id, next);
+    showToast(next ? 'Marked as urgent' : 'Urgent tag removed');
+  };
+
+  // Daily tasks (frontend only)
+  const handleAddDaily = (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = dailyTitle.trim();
+    if (!title) return;
+    setDailyTasks(prev => [...prev, { id: Date.now(), title, lastCompleted: null }]);
+    setDailyTitle('');
+    showToast('Daily task added');
+  };
+
+  const toggleDaily = (id: number) => {
+    setDailyTasks(prev =>
+      prev.map(d => d.id === id ? { ...d, lastCompleted: d.lastCompleted === today ? null : today } : d)
+    );
+  };
+
+  const deleteDaily = (id: number) => {
+    setDailyTasks(prev => prev.filter(d => d.id !== id));
+    showToast('Daily task removed');
+  };
+
   const openCreateModal = () => {
     setCurrentTask({ id: null, title: '', description: '', completed: false });
+    setCurrentUrgent(false);
     setIsEditing(false);
     setIsModalOpen(true);
   };
 
   const openEditModal = (task: Task) => {
     setCurrentTask(task);
+    setCurrentUrgent(isUrgent(task));
     setIsEditing(true);
     setIsModalOpen(true);
   };
@@ -385,6 +499,7 @@ export default function App() {
   const closeModal = () => {
     setIsModalOpen(false);
     setCurrentTask({ id: null, title: '', description: '', completed: false });
+    setCurrentUrgent(false);
   };
 
   const confirmDelete = async () => {
@@ -409,10 +524,17 @@ export default function App() {
                           (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
     if (filter === 'PENDING') return matchesSearch && !task.completed;
     if (filter === 'COMPLETED') return matchesSearch && task.completed;
+    if (filter === 'URGENT') return matchesSearch && !task.completed && isUrgent(task);
     return matchesSearch;
   }).sort((a, b) => {
     if (a.completed !== b.completed) {
       return a.completed ? 1 : -1;
+    }
+    // Among unfinished tasks, urgent ones float to the top
+    if (!a.completed) {
+      const urgentA = isUrgent(a);
+      const urgentB = isUrgent(b);
+      if (urgentA !== urgentB) return urgentA ? -1 : 1;
     }
     const idA = a.id || 0;
     const idB = b.id || 0;
@@ -425,6 +547,7 @@ export default function App() {
 
   const completedCount = tasks.filter(t => t.completed).length;
   const pendingCount = tasks.length - completedCount;
+  const urgentCount = tasks.filter(t => !t.completed && isUrgent(t)).length;
 
   const taskKeys = new Map<number | null, number>(
     [...tasks]
@@ -436,18 +559,27 @@ export default function App() {
   const navItems = [
     { key: 'ALL', label: 'All tasks', icon: ListTodo, count: tasks.length },
     { key: 'PENDING', label: 'To do', icon: Clock, count: pendingCount },
+    { key: 'URGENT', label: 'Urgent', icon: Flag, count: urgentCount },
     { key: 'COMPLETED', label: 'Done', icon: CheckSquare, count: completedCount },
   ];
 
   const filterTitle = navItems.find(n => n.key === filter)?.label ?? 'All tasks';
   const isFirstLoad = loading && tasks.length === 0;
 
+  const dailyDoneCount = dailyTasks.filter(d => d.lastCompleted === today).length;
+  const allDailyDone = dailyTasks.length > 0 && dailyDoneCount === dailyTasks.length;
+  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
   const authInputClass =
     'w-full h-11 bg-white border-2 border-[#DEE2E6] hover:bg-[#F8F9FA] rounded px-3 text-sm placeholder-[#5C636A] focus:outline-none focus:border-[#212529] focus:bg-white';
 
+  // Toast sits just below the header's Create/Logout buttons (the demo banner pushes the header down)
+  const isAuthScreen = !isDemoMode && !token;
+  const toastPosition = isAuthScreen ? 'top-4' : isDemoMode ? 'top-[6.4rem]' : 'top-[4.25rem]';
+
   return (
     <>
-      {!isDemoMode && !token ? (
+      {isAuthScreen ? (
         <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr] bg-white">
           <div className="hidden lg:flex flex-col justify-between bg-[#212529] text-white p-12">
             <div className="flex items-center gap-2.5">
@@ -732,7 +864,7 @@ export default function App() {
                 {navItems.map(({ key, label, icon: Icon, count }) => (
                   <button
                     key={key}
-                    onClick={() => setFilter(key)}
+                    onClick={() => { setFilter(key); setMobilePanel('tasks'); }}
                     aria-current={filter === key ? 'page' : undefined}
                     className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded text-sm transition-colors cursor-pointer ${
                       filter === key
@@ -763,7 +895,7 @@ export default function App() {
               </div>
             </aside>
 
-            <main className="flex-1 min-w-0 min-h-0 flex flex-col max-w-5xl px-4 sm:px-6 py-6">
+            <main className="flex-1 min-w-0 min-h-0 flex flex-col max-w-350 px-4 sm:px-6 py-6">
               {!isBackendOnline && (
                 <div className="shrink-0 mb-5 flex items-start gap-3 rounded border border-[#F5CD47] bg-[#FFF7D6] px-4 py-3 text-sm" role="status">
                   <AlertTriangle className="w-4 h-4 mt-0.5 text-[#946F00] shrink-0" />
@@ -780,7 +912,7 @@ export default function App() {
                 </div>
               )}
 
-              <div className="shrink-0 flex items-end justify-between mb-4">
+              <div className="shrink-0 flex items-end justify-between gap-3 mb-4">
                 <div>
                   <p className="text-xs text-[#5C636A] mb-1">Tasks / {filterTitle}</p>
                   <h1 className="text-2xl font-semibold">{filterTitle}</h1>
@@ -792,12 +924,12 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="md:hidden flex rounded border border-[#DEE2E6] bg-white overflow-hidden">
-                  {['ALL', 'PENDING', 'COMPLETED'].map((tab) => (
+                <div className="md:hidden shrink-0 flex rounded border border-[#DEE2E6] bg-white overflow-hidden">
+                  {['ALL', 'PENDING', 'URGENT', 'COMPLETED'].map((tab) => (
                     <button
                       key={tab}
-                      onClick={() => setFilter(tab)}
-                      className={`px-3 h-8 text-xs font-medium cursor-pointer transition-colors ${
+                      onClick={() => { setFilter(tab); setMobilePanel('tasks'); }}
+                      className={`px-2.5 h-8 text-xs font-medium cursor-pointer transition-colors ${
                         filter === tab
                           ? 'bg-[#212529] text-white'
                           : 'text-[#495057] hover:bg-[#2125290F]'
@@ -809,121 +941,268 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0 flex flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden">
-                <div className="shrink-0 hidden sm:grid grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 h-10 items-center border-b border-[#DEE2E6] bg-[#F8F9FA] text-xs font-semibold text-[#5C636A]">
-                  <span />
-                  <span>Key</span>
-                  <span>Summary</span>
-                  <span>Status</span>
-                  <span className="text-right">Actions</span>
-                </div>
+              {/* Switch between the two cards on screens too narrow to show them side by side */}
+              <div className="xl:hidden shrink-0 mb-3 flex w-fit rounded border border-[#DEE2E6] bg-white overflow-hidden">
+                {([
+                  { key: 'tasks', label: 'Tasks' },
+                  { key: 'daily', label: `Daily (${dailyDoneCount}/${dailyTasks.length})` },
+                ] as const).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setMobilePanel(key)}
+                    aria-pressed={mobilePanel === key}
+                    className={`px-3 h-8 text-xs font-medium cursor-pointer transition-colors ${
+                      mobilePanel === key
+                        ? 'bg-[#212529] text-white'
+                        : 'text-[#495057] hover:bg-[#2125290F]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
 
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  {isFirstLoad ? (
-                    <ul className="divide-y divide-[#DEE2E6]" aria-busy="true" aria-label="Loading tasks">
-                      {[0, 1, 2, 3, 4].map((i) => (
-                        <li key={i} className="px-4 py-4 flex items-center gap-3 animate-pulse">
-                          <div className="w-5 h-5 rounded-full bg-[#DEE2E6]" />
-                          <div className="flex-1 space-y-2">
-                            <div className="h-3.5 w-1/3 rounded bg-[#DEE2E6]" />
-                            <div className="h-3 w-1/2 rounded bg-[#E9ECEF]" />
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : filteredTasks.length === 0 ? (
-                    <div className="py-14 text-center">
-                      <p className="font-semibold">
-                        {tasks.length === 0 ? 'No tasks yet' : 'No tasks match this view'}
-                      </p>
-                      <p className="text-sm text-[#5C636A] mt-1">
-                        {tasks.length === 0
-                          ? 'Add your first task below or use Create.'
-                          : 'Clear the search or switch filters to see more.'}
-                      </p>
-                    </div>
-                  ) : (
-                    <ul className="divide-y divide-[#DEE2E6]">
-                      {filteredTasks.map((task) => (
-                        <li
-                          key={task.id}
-                          className="grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] transition-colors group"
-                        >
-                          <button
-                            onClick={() => toggleComplete(task)}
-                            aria-label={task.completed ? 'Mark as to do' : 'Mark as done'}
-                            className="text-[#5C636A] hover:text-[#1F845A] transition-colors cursor-pointer"
-                          >
-                            {task.completed ? (
-                              <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
-                            ) : (
-                              <Circle className="w-5 h-5" />
-                            )}
-                          </button>
+              {/* Main card (2/3) + daily tasks card (1/3, half the width of the main card) */}
+              <div className="flex-1 min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
 
-                          <span className="hidden sm:block text-xs text-[#5C636A] font-medium">{getTaskKey(task)}</span>
+                {/* Tasks card: only the list inside scrolls */}
+                <div className={`${mobilePanel === 'tasks' ? 'flex' : 'hidden'} xl:flex min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}>
+                  <div className="shrink-0 hidden sm:grid grid-cols-[2rem_5rem_1fr_9rem_6rem] gap-3 px-4 h-10 items-center border-b border-[#DEE2E6] bg-[#F8F9FA] text-xs font-semibold text-[#5C636A]">
+                    <span />
+                    <span>Key</span>
+                    <span>Summary</span>
+                    <span>Status</span>
+                    <span className="text-right">Actions</span>
+                  </div>
 
-                          <button
-                            onClick={() => openEditModal(task)}
-                            title={task.title}
-                            className="min-w-0 text-left cursor-pointer"
-                          >
-                            <p className={`text-sm font-medium truncate hover:underline ${task.completed ? 'line-through text-[#5C636A]' : ''}`}>
-                              {task.title}
-                            </p>
-                            {task.description && (
-                              <p className="text-xs text-[#5C636A] mt-0.5 truncate">{task.description}</p>
-                            )}
-                          </button>
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    {isFirstLoad ? (
+                      <ul className="divide-y divide-[#DEE2E6]" aria-busy="true" aria-label="Loading tasks">
+                        {[0, 1, 2, 3, 4].map((i) => (
+                          <li key={i} className="px-4 py-4 flex items-center gap-3 animate-pulse">
+                            <div className="w-5 h-5 rounded-full bg-[#DEE2E6]" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-3.5 w-1/3 rounded bg-[#DEE2E6]" />
+                              <div className="h-3 w-1/2 rounded bg-[#E9ECEF]" />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : filteredTasks.length === 0 ? (
+                      <div className="py-14 text-center">
+                        <p className="font-semibold">
+                          {tasks.length === 0 ? 'No tasks yet' : 'No tasks match this view'}
+                        </p>
+                        <p className="text-sm text-[#5C636A] mt-1">
+                          {tasks.length === 0
+                            ? 'Add your first task below or use Create.'
+                            : 'Clear the search or switch filters to see more.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-[#DEE2E6]">
+                        {filteredTasks.map((task) => {
+                          // Urgent only matters while the task is unfinished
+                          const urgent = isUrgent(task) && !task.completed;
 
-                          <span
-                            className={`hidden sm:inline-flex justify-self-start items-center px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase ${
-                              task.completed
-                                ? 'bg-[#DCFFF1] text-[#216E4E]'
-                                : 'bg-[#E9ECEF] text-[#495057]'
-                            }`}
-                          >
-                            {task.completed ? 'Done' : 'To do'}
-                          </span>
-
-                          <div className="flex items-center justify-end gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => openEditModal(task)}
-                              aria-label="Edit task"
-                              className="p-1.5 rounded text-[#495057] hover:bg-[#21252924] cursor-pointer"
+                          return (
+                            <li
+                              key={task.id}
+                              className={`grid grid-cols-[2rem_1fr_auto] sm:grid-cols-[2rem_5rem_1fr_9rem_6rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] transition-colors group ${
+                                urgent ? 'shadow-[inset_3px_0_0_#BF5700]' : ''
+                              }`}
                             >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setTaskToDelete(task)}
-                              aria-label="Delete task"
-                              className="p-1.5 rounded text-[#495057] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                              <button
+                                onClick={() => toggleComplete(task)}
+                                aria-label={task.completed ? 'Mark as to do' : 'Mark as done'}
+                                className="text-[#5C636A] hover:text-[#1F845A] transition-colors cursor-pointer"
+                              >
+                                {task.completed ? (
+                                  <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
+                                ) : (
+                                  <Circle className="w-5 h-5" />
+                                )}
+                              </button>
+
+                              <span className="hidden sm:block text-xs text-[#5C636A] font-medium">{getTaskKey(task)}</span>
+
+                              <button
+                                onClick={() => openEditModal(task)}
+                                title={task.title}
+                                className="min-w-0 text-left cursor-pointer"
+                              >
+                                <p className={`text-sm font-medium truncate hover:underline ${task.completed ? 'line-through text-[#5C636A]' : ''}`}>
+                                  {/* Status column is hidden on phones, so show a small flag there */}
+                                  {urgent && <Flag className="sm:hidden inline w-3.5 h-3.5 mr-1 -mt-0.5 text-[#BF5700]" aria-label="Urgent" />}
+                                  {task.title}
+                                </p>
+                                {task.description && (
+                                  <p className="text-xs text-[#5C636A] mt-0.5 truncate">{task.description}</p>
+                                )}
+                              </button>
+
+                              <div className="hidden sm:flex items-center gap-1 min-w-0">
+                                {urgent && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase bg-[#FFEAD6] text-[#A34A00]">
+                                    <Flag className="w-3 h-3" />
+                                    Urgent
+                                  </span>
+                                )}
+                                <span
+                                  className={`inline-flex items-center px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase ${
+                                    task.completed
+                                      ? 'bg-[#DCFFF1] text-[#216E4E]'
+                                      : 'bg-[#E9ECEF] text-[#495057]'
+                                  }`}
+                                >
+                                  {task.completed ? 'Done' : 'To do'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-end gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+                                {!task.completed && (
+                                  <button
+                                    onClick={() => toggleUrgent(task)}
+                                    aria-label={urgent ? 'Remove urgent tag' : 'Mark as urgent'}
+                                    aria-pressed={urgent}
+                                    title={urgent ? 'Remove urgent tag' : 'Mark as urgent'}
+                                    className={`p-1.5 rounded cursor-pointer ${
+                                      urgent
+                                        ? 'text-[#A34A00] bg-[#FFEAD6] hover:bg-[#FFDDBD]'
+                                        : 'text-[#495057] hover:bg-[#FFEAD6] hover:text-[#A34A00]'
+                                    }`}
+                                  >
+                                    <Flag className="w-4 h-4" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => openEditModal(task)}
+                                  aria-label="Edit task"
+                                  className="p-1.5 rounded text-[#495057] hover:bg-[#21252924] cursor-pointer"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setTaskToDelete(task)}
+                                  aria-label="Delete task"
+                                  className="p-1.5 rounded text-[#495057] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
+                  {!isFirstLoad && (
+                    <form
+                      onSubmit={handleQuickAdd}
+                      className="shrink-0 flex items-center gap-3 px-4 h-12 border-t border-[#DEE2E6] bg-[#F8F9FA] focus-within:bg-white"
+                    >
+                      <Plus className="w-5 h-5 text-[#5C636A] shrink-0" />
+                      <input
+                        type="text"
+                        aria-label="Task summary"
+                        placeholder="Create a task and press Enter"
+                        value={quickTitle}
+                        onChange={(e) => setQuickTitle(e.target.value)}
+                        className="flex-1 bg-transparent text-sm placeholder-[#5C636A] focus:outline-none"
+                      />
+                    </form>
                   )}
                 </div>
 
-                {!isFirstLoad && (
+                {/* Daily tasks card: repeats every day, resets automatically at midnight */}
+                <section
+                  aria-label="Daily tasks"
+                  className={`${mobilePanel === 'daily' ? 'flex' : 'hidden'} xl:flex min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}
+                >
+                  <div className="shrink-0 px-4 py-3 border-b border-[#DEE2E6] bg-[#F8F9FA]">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Repeat className="w-4 h-4 text-[#495057] shrink-0" />
+                        <h2 className="text-sm font-semibold truncate">Daily tasks</h2>
+                      </div>
+                      <span className={`text-xs font-semibold shrink-0 ${allDailyDone ? 'text-[#216E4E]' : 'text-[#5C636A]'}`}>
+                        {allDailyDone ? 'All done!' : `${dailyDoneCount}/${dailyTasks.length} today`}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#5C636A] mt-0.5">Repeats every day · {todayLabel}</p>
+                    <div className="h-1.5 mt-2.5 rounded-full bg-[#E9ECEF] overflow-hidden">
+                      <div
+                        className="h-full bg-[#1F845A] transition-[width] duration-300"
+                        style={{ width: dailyTasks.length ? `${(dailyDoneCount / dailyTasks.length) * 100}%` : '0%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    {dailyTasks.length === 0 ? (
+                      <div className="py-12 px-6 text-center">
+                        <p className="font-semibold">No daily tasks yet</p>
+                        <p className="text-sm text-[#5C636A] mt-1">
+                          Add things you do every day, like reviewing emails or a morning stand-up.
+                        </p>
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-[#DEE2E6]">
+                        {dailyTasks.map((daily) => {
+                          const done = daily.lastCompleted === today;
+
+                          return (
+                            <li
+                              key={daily.id}
+                              className="flex items-center gap-3 px-4 py-3 hover:bg-[#F8F9FA] transition-colors group"
+                            >
+                              <button
+                                onClick={() => toggleDaily(daily.id)}
+                                aria-label={done ? 'Mark as not done today' : 'Mark as done today'}
+                                className="shrink-0 text-[#5C636A] hover:text-[#1F845A] transition-colors cursor-pointer"
+                              >
+                                {done ? (
+                                  <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
+                                ) : (
+                                  <Circle className="w-5 h-5" />
+                                )}
+                              </button>
+                              <span
+                                title={daily.title}
+                                className={`flex-1 min-w-0 truncate text-sm font-medium ${done ? 'line-through text-[#5C636A]' : ''}`}
+                              >
+                                {daily.title}
+                              </span>
+                              <button
+                                onClick={() => deleteDaily(daily.id)}
+                                aria-label="Remove daily task"
+                                className="shrink-0 p-1.5 rounded text-[#495057] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+
                   <form
-                    onSubmit={handleQuickAdd}
+                    onSubmit={handleAddDaily}
                     className="shrink-0 flex items-center gap-3 px-4 h-12 border-t border-[#DEE2E6] bg-[#F8F9FA] focus-within:bg-white"
                   >
                     <Plus className="w-5 h-5 text-[#5C636A] shrink-0" />
                     <input
                       type="text"
-                      aria-label="Task summary"
-                      placeholder="Create a task and press Enter"
-                      value={quickTitle}
-                      onChange={(e) => setQuickTitle(e.target.value)}
-                      className="flex-1 bg-transparent text-sm placeholder-[#5C636A] focus:outline-none"
+                      aria-label="Daily task summary"
+                      placeholder="Add a daily task and press Enter"
+                      value={dailyTitle}
+                      onChange={(e) => setDailyTitle(e.target.value)}
+                      className="flex-1 min-w-0 bg-transparent text-sm placeholder-[#5C636A] focus:outline-none"
                     />
                   </form>
-                )}
+                </section>
               </div>
             </main>
           </div>
@@ -985,17 +1264,34 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="completed"
-                      checked={currentTask.completed}
-                      onChange={(e) => setCurrentTask({ ...currentTask, completed: e.target.checked })}
-                      className="w-4 h-4 rounded-sm accent-[#212529] cursor-pointer"
-                    />
-                    <label htmlFor="completed" className="text-sm cursor-pointer">
-                      Mark as completed
-                    </label>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="completed"
+                        checked={currentTask.completed}
+                        onChange={(e) => setCurrentTask({ ...currentTask, completed: e.target.checked })}
+                        className="w-4 h-4 rounded-sm accent-[#212529] cursor-pointer"
+                      />
+                      <label htmlFor="completed" className="text-sm cursor-pointer">
+                        Mark as completed
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="urgent"
+                        checked={currentUrgent}
+                        onChange={(e) => setCurrentUrgent(e.target.checked)}
+                        className="w-4 h-4 rounded-sm accent-[#BF5700] cursor-pointer"
+                      />
+                      <label htmlFor="urgent" className="flex items-center gap-1.5 text-sm cursor-pointer">
+                        <Flag className="w-3.5 h-3.5 text-[#BF5700]" />
+                        Mark as urgent
+                        <span className="text-xs text-[#5C636A]">(shown first in your list)</span>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-end gap-2 pt-2">
@@ -1056,14 +1352,27 @@ export default function App() {
         </div>
       )}
 
+      {/* Notification: top right, just below the header's Create/Logout buttons */}
       {toast && (
         <div
-          role="status"
-          className={`fixed bottom-6 left-6 z-60 max-w-sm rounded px-4 py-3 text-sm font-medium text-white shadow-[0_8px_12px_#21252926] ${
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          className={`fixed right-4 ${toastPosition} z-60 flex items-start gap-2.5 w-max max-w-[calc(100vw-2rem)] sm:max-w-sm rounded px-4 py-3 text-sm font-medium text-white shadow-[0_8px_12px_#21252926] ${
             toast.type === 'error' ? 'bg-[#C9372C]' : 'bg-[#212529]'
           }`}
         >
-          {toast.message}
+          {toast.type === 'error' ? (
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+          )}
+          <span className="flex-1">{toast.message}</span>
+          <button
+            onClick={() => setToast(null)}
+            aria-label="Dismiss notification"
+            className="shrink-0 -mr-1.5 p-0.5 rounded hover:bg-white/20 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
     </>
