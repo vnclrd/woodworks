@@ -7,46 +7,48 @@ export default function AssistantPanel({ app }: Props) {
   const { isLargeScreen, isChatOpen, setIsChatOpen, resetChat, chatScrollRef, chatMessages, isAssistantTyping, CHAT_SUGGESTIONS, sendChatMessage, chatInput, setChatInput } = app;
   return (
 <>
-  {/* AI assistant bar (right side): Increased width from w-64 to w-80 */}
-  {isLargeScreen && !isChatOpen && (
-    <aside
-      aria-label="AI assistant (collapsed)"
-      className="flex flex-col items-center gap-2 w-14 shrink-0 bg-[#BF5700] border-l border-black/10 py-3 transition-all duration-300 ease-in-out"
-    >
-      <button
-        onClick={() => setIsChatOpen(true)}
-        title="Open AI assistant"
-        aria-label="Open AI assistant"
-        className="w-9 h-9 flex items-center justify-center rounded text-white hover:bg-[#A34A00] transition-colors cursor-pointer"
-      >
-        <PanelRightOpen className="w-5 h-5" />
-      </button>
-      <div className="w-9 h-9 rounded bg-white/15 flex items-center justify-center text-white" aria-hidden="true">
-        <Sparkles className="w-5 h-5" />
-      </div>
-    </aside>
+  {/* Mobile backdrop */}
+  {!isLargeScreen && isChatOpen && (
+    <div
+      className="fixed inset-0 z-40 bg-[#2125298A] transition-opacity duration-300"
+      onClick={() => setIsChatOpen(false)}
+      aria-hidden="true"
+    />
   )}
 
-  {isChatOpen && (
-    <>
-      {!isLargeScreen && (
-        <div
-          className="fixed inset-0 z-40 bg-[#2125298A]"
-          onClick={() => setIsChatOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      <aside
-        aria-label="AI assistant"
-        role={isLargeScreen ? undefined : 'dialog'}
-        aria-modal={isLargeScreen ? undefined : true}
-        className={
-          isLargeScreen
-            ? 'flex flex-col w-80 shrink-0 min-h-0 bg-[#BF5700] text-white border-l border-black/10 transition-all duration-300 ease-in-out'
-            : 'fixed inset-y-0 right-0 z-40 flex flex-col w-full max-w-sm bg-[#BF5700] text-white shadow-[-8px_0_16px_#21252933] transition-transform duration-300 ease-in-out'
-        }
-      >
+  {/* AI Assistant Panel with smooth sliding/width transition */}
+  <aside
+    aria-label="AI assistant"
+    role={isLargeScreen ? undefined : 'dialog'}
+    aria-modal={isLargeScreen ? undefined : true}
+    className={
+      isLargeScreen
+        ? `flex flex-col shrink-0 min-h-0 bg-[#BF5700] text-white border-l border-black/10 transition-all duration-300 ease-in-out overflow-hidden ${
+            isChatOpen ? 'w-80' : 'w-14 items-center'
+          }`
+        : `fixed inset-y-0 right-0 z-40 flex flex-col w-full max-w-sm bg-[#BF5700] text-white shadow-[-8px_0_16px_#21252933] transition-transform duration-300 ease-in-out ${
+            isChatOpen ? 'translate-x-0' : 'translate-x-full'
+          }`
+    }
+  >
+    {isLargeScreen && !isChatOpen ? (
+      /* Collapsed State View */
+      <div className="flex flex-col items-center gap-2 py-3 w-full">
+        <button
+          onClick={() => setIsChatOpen(true)}
+          title="Open AI assistant"
+          aria-label="Open AI assistant"
+          className="w-9 h-9 flex items-center justify-center rounded text-white hover:bg-[#A34A00] transition-colors cursor-pointer"
+        >
+          <PanelRightOpen className="w-5 h-5" />
+        </button>
+        <div className="w-9 h-9 rounded bg-white/15 flex items-center justify-center text-white" aria-hidden="true">
+          <Sparkles className="w-5 h-5" />
+        </div>
+      </div>
+    ) : (
+      /* Expanded State View */
+      <div className={`flex flex-col h-full w-80 ${!isLargeScreen ? 'w-full' : ''}`}>
         {/* Header */}
         <div className="shrink-0 flex items-center gap-2 px-3 py-3 border-b border-white/20">
           <div className="w-9 h-9 rounded bg-white/15 flex items-center justify-center shrink-0">
@@ -93,7 +95,7 @@ export default function AssistantPanel({ app }: Props) {
                 </div>
               )}
               <p
-                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words ${
+                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap wrap-break-words ${
                   msg.role === 'user'
                     ? 'bg-white text-[#212529] rounded-tr-sm'
                     : 'bg-[#A34A00] text-white rounded-tl-sm'
@@ -169,9 +171,9 @@ export default function AssistantPanel({ app }: Props) {
           </form>
           <p className="mt-2 text-[11px] leading-4">AI can make mistakes. Check important info.</p>
         </div>
-      </aside>
-    </>
-  )}
+      </div>
+    )}
+  </aside>
 </>
   );
 }

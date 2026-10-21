@@ -80,7 +80,7 @@ export function useAppController() {
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
   const hasRoomForBothCardsWithChat = useMediaQuery('(min-width: 1440px)');
   const hasRoomForBothCardsWithRail = useMediaQuery('(min-width: 1240px)');
-  const [isChatOpen, setIsChatOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [chatInput, setChatInput] = useState('');
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
