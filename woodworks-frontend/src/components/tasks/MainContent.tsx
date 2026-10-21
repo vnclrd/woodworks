@@ -149,19 +149,19 @@ export default function MainContent({ app }: Props) {
                       )}
                     </button>
 
-                    <div className="hidden @xl:flex items-center gap-1 min-w-0 flex-wrap">
+                    <div className="hidden @xl:flex items-center gap-1.5 min-w-0 shrink-0">
                       {pinned && (
-                        <span className="px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase bg-[#FEF3C7] text-[#B45309]">
+                        <span className="inline-flex items-center px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FEF3C7] text-[#B45309] leading-none shrink-0">
                           Pinned
                         </span>
                       )}
                       {urgent && (
-                        <span className="px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase bg-[#FFEAD6] text-[#A34A00]">
+                        <span className="inline-flex items-center px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FFEAD6] text-[#A34A00] leading-none shrink-0">
                           Urgent
                         </span>
                       )}
                       <span
-                        className={`px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase ${
+                        className={`inline-flex items-center px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider leading-none shrink-0 ${
                           task.completed
                             ? 'bg-[#DCFFF1] text-[#216E4E]'
                             : 'bg-[#E9ECEF] text-[#495057]'
