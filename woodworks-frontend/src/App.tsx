@@ -14,6 +14,7 @@ const DAILY_API_BASE_URL = `${BASE_URL.replace(/\/$/, '')}/api/daily-tasks`;
 
 const TOKEN_KEY = 'woodworks_token';
 const TASKS_CACHE_KEY = 'woodworks_tasks_cache';
+const REMEMBERED_EMAIL_KEY = 'woodworks_remembered_email';
 
 // Urgent tags remain browser-cached; daily tasks now sync via backend API
 const URGENT_KEY = isDemoMode ? 'woodworks_demo_urgent_ids' : 'woodworks_urgent_ids';
@@ -58,7 +59,9 @@ export default function App() {
     localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
   );
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
-  const [emailInput, setEmailInput] = useState('');
+  
+  // Pre-fill email from localStorage if available
+  const [emailInput, setEmailInput] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) || '');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -165,8 +168,14 @@ export default function App() {
       (persist ? localStorage : sessionStorage).setItem(TOKEN_KEY, data.token);
       (persist ? sessionStorage : localStorage).removeItem(TOKEN_KEY);
 
+      // Save email to localStorage so it stays remembered on future logouts
+      if (rememberMe) {
+        localStorage.setItem(REMEMBERED_EMAIL_KEY, emailInput.trim());
+      } else {
+        localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+      }
+
       setToken(data.token);
-      setEmailInput('');
       setPasswordInput('');
       setConfirmPasswordInput('');
       setShowPassword(false);
@@ -193,6 +202,7 @@ export default function App() {
 
   const handleLogout = () => {
     clearSession();
+    // Keep remembered email in state and storage so it's pre-filled on the login screen
     showToast('Logged out');
   };
 
@@ -797,7 +807,7 @@ export default function App() {
                 {authView === 'login' && (
                   <label
                     htmlFor="auth-remember"
-                    title="Stay signed in after you close the browser"
+                    title="Stay signed in and remember my email after closing the browser"
                     className="flex items-center gap-2 w-fit text-sm text-[#495057] cursor-pointer select-none"
                   >
                     <input
