@@ -12,6 +12,7 @@ const BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'https://woodwork
 const API_BASE_URL = `${BASE_URL.replace(/\/$/, '')}/api/tasks`;
 
 const TOKEN_KEY = 'woodworks_token';
+const TASKS_CACHE_KEY = 'woodworks_tasks_cache';
 
 interface Task {
   id: number | null;
@@ -27,7 +28,6 @@ interface Toast {
 
 export default function App() {
   // Auth states
-  // "Remember me" keeps the token in localStorage; otherwise it lives in sessionStorage (cleared when the browser closes)
   const [token, setToken] = useState<string | null>(
     localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
   );
@@ -36,24 +36,35 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Auth UI-only states (never sent to the backend)
+  // Auth UI-only states
   const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
-  const [tasks, setTasks] = useState<Task[]>([]);
+  // Initialize tasks from local storage cache for instant UI restoration on cold loads
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    try {
+      const cached = localStorage.getItem(TASKS_CACHE_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [filter, setFilter] = useState('ALL'); // ALL, PENDING, COMPLETED
   const [searchQuery, setSearchQuery] = useState('');
   const [isBackendOnline, setIsBackendOnline] = useState(true);
-  const [loading, setLoading] = useState(true);
+  
+  // Only show full loading skeleton if we don't have cached tasks to display instantly
+  const [loading, setLoading] = useState<boolean>(tasks.length === 0);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task>({ id: null, title: '', description: '', completed: false });
   const [isEditing, setIsEditing] = useState(false);
 
-  // UI-only states (never sent to the backend)
+  // UI-only states
   const [isSaving, setIsSaving] = useState(false);
   const [quickTitle, setQuickTitle] = useState('');
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
@@ -63,7 +74,6 @@ export default function App() {
 
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
-  // Switching between Sign in / Sign up resets the form so errors and passwords don't carry over
   const switchAuthView = (view: 'login' | 'register') => {
     setAuthView(view);
     setAuthError(null);
@@ -95,20 +105,16 @@ export default function App() {
       let data: any = {};
       try {
         data = await response.json();
-      } catch {
-        // Response had no JSON body; fall through to the generic message below
-      }
+      } catch {}
 
       if (!response.ok) {
         throw new Error(data.error || 'Authentication failed. Please try again.');
       }
 
-      // Save token: persistent when "Remember me" is ticked (new accounts are always remembered)
       const persist = authView === 'register' || rememberMe;
       (persist ? localStorage : sessionStorage).setItem(TOKEN_KEY, data.token);
       (persist ? sessionStorage : localStorage).removeItem(TOKEN_KEY);
 
-      // Update state (the effect below loads this user's tasks)
       setToken(data.token);
       setEmailInput('');
       setPasswordInput('');
@@ -129,6 +135,7 @@ export default function App() {
   const clearSession = () => {
     localStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TASKS_CACHE_KEY);
     setToken(null);
     setTasks([]);
   };
@@ -138,12 +145,18 @@ export default function App() {
     showToast('Logged out');
   };
 
-  // Fetch tasks on mount
+  // Fetch tasks on mount & sync cache
   useEffect(() => {
     if (isDemoMode || token) {
       fetchTasks();
     }
   }, [token]);
+
+  useEffect(() => {
+    if (tasks.length > 0) {
+      localStorage.setItem(TASKS_CACHE_KEY, JSON.stringify(tasks));
+    }
+  }, [tasks]);
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -152,23 +165,25 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const fetchTasks = async () => {
-    setLoading(true);
+  const fetchTasks = async (isBackground = false) => {
+    if (!isBackground && tasks.length === 0) {
+      setLoading(true);
+    }
+
     if (isDemoMode) {
-      // Demo mode: use local mock data immediately
       setTimeout(() => {
-        setTasks([
+        const mockTasks = [
           { id: 1, title: 'Review Q4 Cloud Architecture', description: 'Analyze GCP Cloud Run scaling parameters', completed: true },
           { id: 2, title: 'Implement AI Task Assistant', description: 'Draft natural language CRUD prompt handlers', completed: false },
           { id: 3, title: 'Optimize PostgreSQL Queries', description: 'Review Neon connection pooler performance', completed: false }
-        ]);
+        ];
+        setTasks(mockTasks);
         setIsBackendOnline(true);
         setLoading(false);
       }, 300);
       return;
     }
 
-    // Normal live backend fetching...
     try {
       const response = await fetch(API_BASE_URL, {
         headers: {
@@ -176,7 +191,6 @@ export default function App() {
         }
       });
 
-      // Expired or invalid token: send the user back to the login page
       if (response.status === 401 || response.status === 403) {
         clearSession();
         showToast('Your session expired. Please sign in again.', 'error');
@@ -188,7 +202,7 @@ export default function App() {
       setTasks(data);
       setIsBackendOnline(true);
     } catch (error) {
-      console.warn('Spring Boot backend not detected. Switching to offline mock mode.');
+      console.warn('Spring Boot backend cold-starting or offline. Using local cached fallback.');
       setIsBackendOnline(false);
       if (tasks.length === 0) {
         setTasks([
@@ -237,20 +251,18 @@ export default function App() {
         });
 
         if (response.ok) {
-          fetchTasks();
+          fetchTasks(true);
           closeModal();
           showToast(isEditing ? 'Task updated' : 'Task created');
         } else {
           showToast("Couldn't save the task. Try again.", 'error');
         }
       } catch (err) {
-        console.error('Failed to save task to backend', err);
         showToast("Couldn't reach the server. Your task wasn't saved.", 'error');
       } finally {
         setIsSaving(false);
       }
     } else {
-      // Offline fallback behavior
       if (isEditing) {
         setTasks(tasks.map(t => t.id === currentTask.id ? currentTask : t));
       } else {
@@ -285,13 +297,12 @@ export default function App() {
         });
         if (response.ok) {
           setQuickTitle('');
-          fetchTasks();
+          fetchTasks(true);
           showToast('Task created');
         } else {
           showToast("Couldn't create the task. Try again.", 'error');
         }
       } catch (err) {
-        console.error('Failed to create task', err);
         showToast("Couldn't reach the server. Your task wasn't created.", 'error');
       }
     } else {
@@ -352,7 +363,6 @@ export default function App() {
           showToast("Couldn't update the status. Try again.", 'error');
         }
       } catch (err) {
-        console.error('Failed to update status', err);
         showToast("Couldn't reach the server. The status wasn't changed.", 'error');
       }
     } else {
@@ -384,7 +394,6 @@ export default function App() {
     await handleDeleteTask(id);
   };
 
-  // Escape closes whichever dialog is open
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -395,8 +404,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isModalOpen, taskToDelete]);
 
-  // Filter & Search logic
-  // Filter & Sort logic
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -404,28 +411,21 @@ export default function App() {
     if (filter === 'COMPLETED') return matchesSearch && task.completed;
     return matchesSearch;
   }).sort((a, b) => {
-    // Rule 1: Unfinished tasks always come before completed tasks
     if (a.completed !== b.completed) {
       return a.completed ? 1 : -1;
     }
-
-    // Rule 2 & 3: If both are unfinished or both are completed, sort by creation date (ID)
-    // Higher ID = created later (Newest)
     const idA = a.id || 0;
     const idB = b.id || 0;
-
     if (sortOrder === 'newest') {
-      return idB - idA; // Latest at the top
+      return idB - idA;
     } else {
-      return idA - idB; // Oldest at the top
+      return idA - idB;
     }
   });
 
   const completedCount = tasks.filter(t => t.completed).length;
   const pendingCount = tasks.length - completedCount;
 
-  // Stable display keys: rank by creation order (ID) across ALL tasks,
-  // so sorting, filtering and searching never change a task's key
   const taskKeys = new Map<number | null, number>(
     [...tasks]
       .sort((a, b) => (a.id || 0) - (b.id || 0))
@@ -449,8 +449,6 @@ export default function App() {
     <>
       {!isDemoMode && !token ? (
         <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr] bg-white">
-
-          {/* Brand panel (desktop only) */}
           <div className="hidden lg:flex flex-col justify-between bg-[#212529] text-white p-12">
             <div className="flex items-center gap-2.5">
               <img 
@@ -486,11 +484,8 @@ export default function App() {
             <p className="text-xs text-white/80">Personal Task Management System</p>
           </div>
 
-          {/* Form panel */}
           <div className="flex items-center justify-center px-6 py-12 bg-[#F8F9FA] lg:bg-white">
             <div className="w-full max-w-sm">
-
-              {/* Logo for small screens (brand panel is hidden) */}
               <div className="lg:hidden flex items-center gap-2.5 mb-8">
                 <img 
                   src="/WoodWorksLogo.png"
@@ -641,10 +636,7 @@ export default function App() {
           </div>
         </div>
       ) : (
-        // Static app shell: the page itself never scrolls, only the task list inside the card does
         <div className="h-dvh flex flex-col overflow-hidden bg-[#F8F9FA] text-[#212529]">
-
-          {/* Demo Mode Banner */}
           {isDemoMode && (
             <div className="shrink-0 bg-[#E9ECEF] border-b border-[#DEE2E6] px-4 py-2 text-xs text-[#212529] flex items-center justify-between gap-3 font-medium">
               <span>💡 <strong>Demo Mode:</strong> You are testing an interactive sandbox. Changes won't affect live production data.</span>
@@ -652,7 +644,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Top navigation */}
           <header className="shrink-0 h-14 bg-white border-b border-[#DEE2E6] flex items-center gap-2 sm:gap-4 px-4 z-20">
             <div className="flex items-center gap-2.5 shrink-0 md:w-60">
               <img 
@@ -684,7 +675,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Sorting Toggle Button */}
             <button
               onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
               title="Toggle creation date sort"
@@ -697,7 +687,7 @@ export default function App() {
 
             <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
               <button
-                onClick={fetchTasks}
+                onClick={() => fetchTasks(false)}
                 title="Refresh tasks"
                 aria-label="Refresh tasks"
                 className="h-9 w-9 flex items-center justify-center rounded text-[#495057] hover:bg-[#2125290F] transition-colors cursor-pointer"
@@ -727,8 +717,6 @@ export default function App() {
           </header>
 
           <div className="flex flex-1 min-h-0">
-
-            {/* Sidebar */}
             <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#212529] border-r border-white/10 p-3 overflow-y-auto">
               <div className="flex items-center gap-3 px-2 py-3 mb-2">
                 <div className="w-9 h-9 rounded bg-white/10 text-white flex items-center justify-center">
@@ -775,18 +763,16 @@ export default function App() {
               </div>
             </aside>
 
-            {/* Main content */}
             <main className="flex-1 min-w-0 min-h-0 flex flex-col max-w-5xl px-4 sm:px-6 py-6">
-
               {!isBackendOnline && (
                 <div className="shrink-0 mb-5 flex items-start gap-3 rounded border border-[#F5CD47] bg-[#FFF7D6] px-4 py-3 text-sm" role="status">
                   <AlertTriangle className="w-4 h-4 mt-0.5 text-[#946F00] shrink-0" />
                   <p className="flex-1">
-                    <span className="font-semibold">Can't reach the server.</span>{' '}
-                    Showing sample tasks. Changes stay in this browser until the Spring Boot backend is running.
+                    <span className="font-semibold">Backend waking up / offline.</span>{' '}
+                    Displaying cached tasks. Changes sync automatically once online.
                   </p>
                   <button
-                    onClick={fetchTasks}
+                    onClick={() => fetchTasks(false)}
                     className="shrink-0 h-7 px-2.5 rounded text-xs font-semibold text-[#212529] hover:bg-[#21252914] cursor-pointer"
                   >
                     Retry
@@ -806,7 +792,6 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Filter tabs for small screens (sidebar is hidden) */}
                 <div className="md:hidden flex rounded border border-[#DEE2E6] bg-white overflow-hidden">
                   {['ALL', 'PENDING', 'COMPLETED'].map((tab) => (
                     <button
@@ -824,7 +809,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Task card: fills the remaining height; only the list inside scrolls */}
               <div className="flex-1 min-h-0 flex flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden">
                 <div className="shrink-0 hidden sm:grid grid-cols-[2rem_5rem_1fr_6.5rem_5.5rem] gap-3 px-4 h-10 items-center border-b border-[#DEE2E6] bg-[#F8F9FA] text-xs font-semibold text-[#5C636A]">
                   <span />
@@ -837,7 +821,7 @@ export default function App() {
                 <div className="flex-1 min-h-0 overflow-y-auto">
                   {isFirstLoad ? (
                     <ul className="divide-y divide-[#DEE2E6]" aria-busy="true" aria-label="Loading tasks">
-                      {[0, 1, 2].map((i) => (
+                      {[0, 1, 2, 3, 4].map((i) => (
                         <li key={i} className="px-4 py-4 flex items-center gap-3 animate-pulse">
                           <div className="w-5 h-5 rounded-full bg-[#DEE2E6]" />
                           <div className="flex-1 space-y-2">
@@ -879,7 +863,6 @@ export default function App() {
 
                           <span className="hidden sm:block text-xs text-[#5C636A] font-medium">{getTaskKey(task)}</span>
 
-                          {/* Clicking the summary opens the task for editing */}
                           <button
                             onClick={() => openEditModal(task)}
                             title={task.title}
@@ -925,7 +908,6 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Quick add row (always visible at the bottom of the card) */}
                 {!isFirstLoad && (
                   <form
                     onSubmit={handleQuickAdd}
@@ -946,7 +928,6 @@ export default function App() {
             </main>
           </div>
 
-          {/* Create / Edit modal */}
           {isModalOpen && (
             <div
               className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-24 bg-[#2125298A]"
@@ -1038,7 +1019,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Delete confirmation */}
           {taskToDelete && (
             <div
               className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-32 bg-[#2125298A]"
@@ -1076,7 +1056,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Toast (rendered outside both screens so it also shows on the login page, e.g. "Logged out") */}
       {toast && (
         <div
           role="status"
