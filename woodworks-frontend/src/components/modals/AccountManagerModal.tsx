@@ -4,7 +4,7 @@ import type { AppController } from '../../hooks/useAppController';
 type Props = { app: AppController };
 
 export default function AccountManagerModal({ app }: Props) {
-  const { isAccountManagerOpen, setIsAccountManagerOpen, currentPasswordInput, setCurrentPasswordInput, newAccountPasswordInput, setNewAccountPasswordInput, showAccountPasswords, setShowAccountPasswords, confirmAccountPasswordInput, setConfirmAccountPasswordInput, handleChangePasswordPreview, setIsDeleteAccountConfirmOpen, setDeleteAccountPhrase } = app;
+  const { isAccountManagerOpen, setIsAccountManagerOpen, currentPasswordInput, setCurrentPasswordInput, newAccountPasswordInput, setNewAccountPasswordInput, showAccountPasswords, setShowAccountPasswords, confirmAccountPasswordInput, setConfirmAccountPasswordInput, handleChangePassword, setIsDeleteAccountConfirmOpen, setDeleteAccountPhrase } = app;
   return (
 <>
 {isAccountManagerOpen && (
@@ -42,8 +42,8 @@ export default function AccountManagerModal({ app }: Props) {
             <KeyRound className="w-4 h-4 text-[#495057]" />
             <h3 className="text-sm font-semibold">Change password</h3>
           </div>
-          <p className="text-xs leading-5 text-[#5C636A] mb-4">Verify your current password, then choose a new one. The backend must validate and save the change.</p>
-          <form onSubmit={handleChangePasswordPreview} className="space-y-3">
+          <p className="text-xs leading-5 text-[#5C636A] mb-4">Verify your current password, then choose a new one (at least 8 characters).</p>
+          <form onSubmit={handleChangePassword} className="space-y-3">
             <div>
               <label htmlFor="current-account-password" className="block text-xs font-semibold text-[#495057] mb-1">Current password</label>
               <input
@@ -99,7 +99,7 @@ export default function AccountManagerModal({ app }: Props) {
             <ShieldAlert className="w-4 h-4 text-[#C9372C]" />
             <h3 className="text-sm font-semibold">Delete account</h3>
           </div>
-          <p className="text-xs leading-5 text-[#5C636A]">Account deletion should permanently remove your account and associated data. Require a backend endpoint and server-side confirmation before enabling it.</p>
+          <p className="text-xs leading-5 text-[#5C636A]">Permanently remove your account and all associated tasks from the database.</p>
           <div className="mt-4 flex justify-end">
             <button
               onClick={() => { setDeleteAccountPhrase(''); setIsDeleteAccountConfirmOpen(true); }}
@@ -107,7 +107,6 @@ export default function AccountManagerModal({ app }: Props) {
             >Delete account</button>
           </div>
         </section>
-        <p className="text-[11px] leading-4 text-[#868E96]">Frontend preview only: password changes and account deletion are not submitted or applied yet.</p>
       </div>
     </div>
   </div>

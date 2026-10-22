@@ -153,26 +153,6 @@ export function useAppController() {
     }
   };
 
-  const handleChangePasswordPreview = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentPasswordInput || !newAccountPasswordInput || !confirmAccountPasswordInput) {
-      showToast('Complete all password fields first.', 'error');
-      return;
-    }
-    if (newAccountPasswordInput.length < 8) {
-      showToast('New password must be at least 8 characters.', 'error');
-      return;
-    }
-    if (newAccountPasswordInput !== confirmAccountPasswordInput) {
-      showToast('New passwords do not match.', 'error');
-      return;
-    }
-    setCurrentPasswordInput('');
-    setNewAccountPasswordInput('');
-    setConfirmAccountPasswordInput('');
-    showToast('Backend required: password was not changed.', 'error');
-  };
-
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPasswordInput || !newAccountPasswordInput || !confirmAccountPasswordInput) {
@@ -220,14 +200,6 @@ export function useAppController() {
     } catch (err: any) {
       showToast(err.message, 'error');
     }
-  };
-
-  const handleDeleteAccountPreview = () => {
-    if (deleteAccountPhrase !== 'DELETE') return;
-    setIsDeleteAccountConfirmOpen(false);
-    setIsAccountManagerOpen(false);
-    setDeleteAccountPhrase('');
-    showToast('Backend required: no account was deleted.', 'error');
   };
 
   const handleDeleteAccount = async () => {
@@ -981,11 +953,10 @@ export function useAppController() {
     isChatOpen, setIsChatOpen, chatMessages, setChatMessages, chatInput, setChatInput,
     isAssistantTyping, setIsAssistantTyping, chatScrollRef, chatTimerRef, showToast,
     sortOrder, setSortOrder, saveGroupAssignment, handleCreateGroup, handleDeleteGroup, groupToDelete, 
-    setGroupToDelete, handleChangePasswordPreview, handleChangePassword, handleDeleteAccountPreview,
-    handleDeleteAccount, switchAuthView, handleAuthSubmit, clearSession, handleLogout, fetchTasks,
-    fetchDailyTasks, handleAddDaily, toggleDaily, deleteDaily, handleSaveTask, handleQuickAdd,
-    handleDeleteTask, toggleComplete, toggleUrgent, togglePinned, sendChatMessage,
-    resetChat, openCreateModal, openEditModal, closeModal, confirmDelete,
+    setGroupToDelete, handleChangePassword, handleDeleteAccount, switchAuthView, handleAuthSubmit,
+    clearSession, handleLogout, fetchTasks, fetchDailyTasks, handleAddDaily, toggleDaily, deleteDaily,
+    handleSaveTask, handleQuickAdd, handleDeleteTask, toggleComplete, toggleUrgent, togglePinned,
+    sendChatMessage, resetChat, openCreateModal, openEditModal, closeModal, confirmDelete,
     filteredTasks, completedCount, pendingCount, urgentCount, taskKeys, getTaskKey,
     navItems, filterTitle, isFirstLoad, dailyDoneCount, allDailyDone, todayLabel,
     isChatColumnOpen, cardsSideBySide, authInputClass, isAuthScreen, toastPosition,
