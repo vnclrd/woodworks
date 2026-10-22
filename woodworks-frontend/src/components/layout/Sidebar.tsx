@@ -125,7 +125,7 @@ export default function Sidebar({ app }: Props) {
         className="w-full h-10 flex items-center gap-2.5 px-2.5 rounded text-sm text-white/75 hover:bg-[#495057] hover:text-white transition-colors cursor-pointer"
       >
         <Settings className="w-4 h-4" />
-        <span>Account manager</span>
+        <span>Account Manager</span>
       </button>
     </div>
 

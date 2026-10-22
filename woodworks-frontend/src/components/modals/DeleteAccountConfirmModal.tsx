@@ -4,7 +4,8 @@ import type { AppController } from '../../hooks/useAppController';
 type Props = { app: AppController };
 
 export default function DeleteAccountConfirmModal({ app }: Props) {
-  const { isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen, deleteAccountPhrase, setDeleteAccountPhrase, handleDeleteAccountPreview } = app;
+  const { isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen, deleteAccountPhrase, setDeleteAccountPhrase, handleDeleteAccount } = app;
+  
   return (
 <>
 {isDeleteAccountConfirmOpen && (
@@ -23,7 +24,9 @@ export default function DeleteAccountConfirmModal({ app }: Props) {
         <ShieldAlert className="w-5 h-5" />
       </div>
       <h2 id="delete-account-title" className="text-lg font-semibold">Confirm account deletion</h2>
-      <p className="text-sm text-[#495057] mt-2">This is a final confirmation step. The current frontend does not delete accounts yet.</p>
+      <p className="text-sm text-[#495057] mt-2">
+        This is a permanent action. All your tasks and account data will be permanently deleted.
+      </p>
       <label htmlFor="delete-account-phrase" className="block text-xs font-semibold text-[#495057] mt-4 mb-1">Type DELETE to confirm</label>
       <input
         id="delete-account-phrase"
@@ -36,7 +39,7 @@ export default function DeleteAccountConfirmModal({ app }: Props) {
       <div className="flex items-center justify-end gap-2 mt-6">
         <button onClick={() => setIsDeleteAccountConfirmOpen(false)} className="h-9 px-3 rounded text-sm font-medium text-[#495057] hover:bg-[#2125290F] cursor-pointer">Cancel</button>
         <button
-          onClick={handleDeleteAccountPreview}
+          onClick={handleDeleteAccount}
           disabled={deleteAccountPhrase !== 'DELETE'}
           className="h-9 px-3 rounded bg-[#C9372C] hover:bg-[#AE2E24] text-white text-sm font-medium transition-colors cursor-pointer disabled:bg-[#DEE2E6] disabled:text-[#868E96] disabled:cursor-not-allowed"
         >Confirm request</button>

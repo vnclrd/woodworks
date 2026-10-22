@@ -173,12 +173,98 @@ export function useAppController() {
     showToast('Backend required: password was not changed.', 'error');
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPasswordInput || !newAccountPasswordInput || !confirmAccountPasswordInput) {
+      showToast('Complete all password fields first.', 'error');
+      return;
+    }
+    if (newAccountPasswordInput.length < 8) {
+      showToast('New password must be at least 8 characters.', 'error');
+      return;
+    }
+    if (newAccountPasswordInput !== confirmAccountPasswordInput) {
+      showToast('New passwords do not match.', 'error');
+      return;
+    }
+
+    if (isDemoMode) {
+      setCurrentPasswordInput('');
+      setNewAccountPasswordInput('');
+      setConfirmAccountPasswordInput('');
+      showToast('Password changed (Demo Mode)');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL.replace(/\/$/, '')}/api/users/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: currentPasswordInput,
+          newPassword: newAccountPasswordInput
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to change password');
+
+      setCurrentPasswordInput('');
+      setNewAccountPasswordInput('');
+      setConfirmAccountPasswordInput('');
+      setIsAccountManagerOpen(false);
+      showToast('Password updated successfully');
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
   const handleDeleteAccountPreview = () => {
     if (deleteAccountPhrase !== 'DELETE') return;
     setIsDeleteAccountConfirmOpen(false);
     setIsAccountManagerOpen(false);
     setDeleteAccountPhrase('');
     showToast('Backend required: no account was deleted.', 'error');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteAccountPhrase !== 'DELETE') return;
+
+    if (isDemoMode) {
+      setIsDeleteAccountConfirmOpen(false);
+      setIsAccountManagerOpen(false);
+      setDeleteAccountPhrase('');
+      clearSession();
+      showToast('Account deleted (Demo Mode)');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL.replace(/\/$/, '')}/api/users/me`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch {}
+
+      if (!response.ok) throw new Error(data.error || 'Failed to delete account');
+
+      setIsDeleteAccountConfirmOpen(false);
+      setIsAccountManagerOpen(false);
+      setDeleteAccountPhrase('');
+      clearSession(); // Clears token, tasks, and resets auth state
+      showToast('Your account has been deleted.');
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
   };
 
   const switchAuthView = (view: 'login' | 'register') => {
@@ -895,9 +981,9 @@ export function useAppController() {
     isChatOpen, setIsChatOpen, chatMessages, setChatMessages, chatInput, setChatInput,
     isAssistantTyping, setIsAssistantTyping, chatScrollRef, chatTimerRef, showToast,
     sortOrder, setSortOrder, saveGroupAssignment, handleCreateGroup, handleDeleteGroup, groupToDelete, 
-    setGroupToDelete, handleChangePasswordPreview, handleDeleteAccountPreview, switchAuthView,
-    handleAuthSubmit, clearSession, handleLogout, fetchTasks, fetchDailyTasks,
-    handleAddDaily, toggleDaily, deleteDaily, handleSaveTask, handleQuickAdd,
+    setGroupToDelete, handleChangePasswordPreview, handleChangePassword, handleDeleteAccountPreview,
+    handleDeleteAccount, switchAuthView, handleAuthSubmit, clearSession, handleLogout, fetchTasks,
+    fetchDailyTasks, handleAddDaily, toggleDaily, deleteDaily, handleSaveTask, handleQuickAdd,
     handleDeleteTask, toggleComplete, toggleUrgent, togglePinned, sendChatMessage,
     resetChat, openCreateModal, openEditModal, closeModal, confirmDelete,
     filteredTasks, completedCount, pendingCount, urgentCount, taskKeys, getTaskKey,
