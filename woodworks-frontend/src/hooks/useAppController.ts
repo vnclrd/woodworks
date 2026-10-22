@@ -74,6 +74,7 @@ export function useAppController() {
   const [today, setToday] = useState(getTodayKey());
 
   const [mobilePanel, setMobilePanel] = useState<'tasks' | 'daily'>('tasks');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
   const hasRoomForBothCardsWithChat = useMediaQuery('(min-width: 1440px)');
@@ -920,8 +921,8 @@ export function useAppController() {
   const toastPosition = isAuthScreen
     ? 'top-4 right-4'
     : isDemoMode
-      ? `top-[6.4rem] left-4 md:left-[17rem] ${isSidebarColumnOpen ? 'lg:right-[21.5rem] lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`
-      : `top-[4.25rem] left-4 md:left-[17rem] ${isSidebarColumnOpen ? 'lg:right-[21.5rem] lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`;
+      ? `top-[6.4rem] left-4 md:left-[17rem] ${isSidebarColumnOpen ? (isSidebarCollapsed ? 'lg:right-[5rem]' : 'lg:right-[21.5rem]') + ' lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`
+      : `top-[4.25rem] left-4 md:left-[17rem] ${isSidebarColumnOpen ? (isSidebarCollapsed ? 'lg:right-[5rem]' : 'lg:right-[21.5rem]') + ' lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`;
 
 
   return {
@@ -948,8 +949,8 @@ export function useAppController() {
     handleSaveTask, handleQuickAdd, handleDeleteTask, toggleComplete, toggleUrgent, togglePinned,
     openCreateModal, openEditModal, closeModal, confirmDelete, filteredTasks, completedCount, pendingCount,
     urgentCount, taskKeys, getTaskKey, navItems, filterTitle, isFirstLoad, dailyDoneCount, allDailyDone,
-    todayLabel, isSidebarOpen, setIsSidebarOpen, cardsSideBySide, authInputClass, isAuthScreen, toastPosition,
-    activeTaskId, setActiveTaskId, activeTask, updateTaskBackend
+    todayLabel, isSidebarOpen, setIsSidebarOpen, isSidebarCollapsed, setIsSidebarCollapsed, cardsSideBySide,
+    authInputClass, isAuthScreen, toastPosition, activeTaskId, setActiveTaskId, activeTask, updateTaskBackend
   };
 }
 

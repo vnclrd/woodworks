@@ -10,7 +10,7 @@ export default function ToastMessage({ app }: Props) {
       {toast && (
         <div
           role={toast.type === 'error' ? 'alert' : 'status'}
-          className={`fixed ${toastPosition} z-60 flex items-start gap-2.5 w-max max-w-[calc(100vw-2rem)] sm:max-w-sm rounded px-4 py-3 text-sm font-medium text-white shadow-[0_8px_12px_#21252926] ${
+          className={`fixed ${toastPosition} transition-all duration-300 motion-reduce:transition-none z-60 flex items-start gap-2.5 w-max max-w-[calc(100vw-2rem)] sm:max-w-sm rounded px-4 py-3 text-sm font-medium text-white shadow-[0_8px_12px_#21252926] ${
             toast.type === 'error' ? 'bg-[#C9372C]' : 'bg-[#212529]'
           }`}
         >
