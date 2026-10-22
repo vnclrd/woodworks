@@ -11,6 +11,7 @@ import {
   Pin,
   Flag,
   Trash2,
+  CheckCircle2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AppController } from '../../hooks/useAppController';
@@ -554,11 +555,86 @@ export default function RightSidebar({ app }: RightSidebarProps) {
             )}
 
             {activeTab === 4 && (
-              <ComingSoon
-                icon={ListFilter}
-                title="Quick Filters"
-                description="Filter tasks by priority, tags and status."
-              />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-white/20 pb-3">
+                  <h3 className="font-semibold">Quick Filters</h3>
+                  {(app.quickFilterPinned || app.quickFilterUrgent || app.quickFilterHasDesc || app.quickFilterHideDone) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        app.setQuickFilterPinned(false);
+                        app.setQuickFilterUrgent(false);
+                        app.setQuickFilterHasDesc(false);
+                        app.setQuickFilterHideDone(false);
+                        app.showToast('Filters cleared');
+                      }}
+                      className="text-xs text-[#FFE8D1] hover:underline cursor-pointer"
+                    >
+                      Reset all
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-[#FFE8D1]">Attribute Filters</p>
+                  
+                  <button
+                    type="button"
+                    onClick={() => app.setQuickFilterPinned(!app.quickFilterPinned)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+                      app.quickFilterPinned ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Pin size={14} aria-hidden="true" /> Pinned tasks only
+                    </span>
+                    <span className={`w-2 h-2 rounded-full ${app.quickFilterPinned ? 'bg-[#BF5700]' : 'bg-white/30'}`} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => app.setQuickFilterUrgent(!app.quickFilterUrgent)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+                      app.quickFilterUrgent ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Flag size={14} aria-hidden="true" /> Urgent tasks only
+                    </span>
+                    <span className={`w-2 h-2 rounded-full ${app.quickFilterUrgent ? 'bg-[#BF5700]' : 'bg-white/30'}`} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => app.setQuickFilterHasDesc(!app.quickFilterHasDesc)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+                      app.quickFilterHasDesc ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileText size={14} aria-hidden="true" /> Has description notes
+                    </span>
+                    <span className={`w-2 h-2 rounded-full ${app.quickFilterHasDesc ? 'bg-[#BF5700]' : 'bg-white/30'}`} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => app.setQuickFilterHideDone(!app.quickFilterHideDone)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+                      app.quickFilterHideDone ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <CheckCircle2 size={14} aria-hidden="true" /> Hide completed tasks
+                    </span>
+                    <span className={`w-2 h-2 rounded-full ${app.quickFilterHideDone ? 'bg-[#BF5700]' : 'bg-white/30'}`} />
+                  </button>
+                </div>
+
+                <p className="text-xs text-[#FFE8D1] pt-2">
+                  Filters combine dynamically with your search query and group selections.
+                </p>
+              </div>
             )}
           </div>
         </>

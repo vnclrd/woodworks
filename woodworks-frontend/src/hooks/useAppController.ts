@@ -57,6 +57,10 @@ export function useAppController() {
 
   const [filter, setFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [quickFilterPinned, setQuickFilterPinned] = useState(false);
+  const [quickFilterUrgent, setQuickFilterUrgent] = useState(false);
+  const [quickFilterHasDesc, setQuickFilterHasDesc] = useState(false);
+  const [quickFilterHideDone, setQuickFilterHideDone] = useState(false);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [loading, setLoading] = useState<boolean>(tasks.length === 0);
 
@@ -896,6 +900,12 @@ export function useAppController() {
     if (filter === 'PENDING') return !task.completed;
     if (filter === 'COMPLETED') return task.completed;
     if (filter === 'URGENT') return !task.completed && task.urgent;
+
+    if (quickFilterPinned && !task.pinned) return false;
+    if (quickFilterUrgent && !task.urgent) return false;
+    if (quickFilterHasDesc && (!task.description || !task.description.trim())) return false;
+    if (quickFilterHideDone && task.completed) return false;
+
     return true;
   }).sort((a, b) => {
     if (a.completed !== b.completed) {
@@ -987,7 +997,8 @@ export function useAppController() {
     urgentCount, taskKeys, getTaskKey, navItems, filterTitle, isFirstLoad, dailyDoneCount, allDailyDone,
     todayLabel, isSidebarOpen, setIsSidebarOpen, isSidebarCollapsed, setIsSidebarCollapsed, cardsSideBySide,
     authInputClass, isAuthScreen, toastPosition, activeTaskId, setActiveTaskId, activeTask, updateTaskBackend,
-    activities, logActivity
+    quickFilterPinned, setQuickFilterPinned, quickFilterUrgent, setQuickFilterUrgent,
+    quickFilterHasDesc, setQuickFilterHasDesc, quickFilterHideDone, setQuickFilterHideDone, activities, logActivity
   };
 }
 
