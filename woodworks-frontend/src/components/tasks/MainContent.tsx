@@ -143,7 +143,10 @@ export default function MainContent({ app }: Props) {
                     <span className="hidden @xl:block text-xs text-[#5C636A] font-medium">{getTaskKey(task)}</span>
 
                     <button
-                      onClick={() => openEditModal(task)}
+                      onClick={() => {
+                        app.setActiveTaskId(task.id);
+                        app.setIsSidebarOpen(true);
+                      }}
                       title={task.title}
                       className="min-w-0 text-left cursor-pointer"
                     >

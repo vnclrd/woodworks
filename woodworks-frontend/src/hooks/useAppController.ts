@@ -81,6 +81,9 @@ export function useAppController() {
   const showToast = (message: string, type: Toast['type'] = 'success') => setToast({ message, type });
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
+  const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
+  const activeTask = tasks.find(t => t.id === activeTaskId) || null;
+
   const saveGroupAssignment = (taskId: number | null, groupId: string | null | undefined) => {
     if (taskId === null) return;
     const assignments = loadJSON<Record<string, string>>(TASK_GROUP_ASSIGNMENTS_KEY, {});
@@ -769,6 +772,42 @@ export function useAppController() {
     }
   };
 
+  const updateTaskBackend = async (task: Task) => {
+    if (isDemoMode) {
+      showToast('Task updated (Demo Mode)');
+      return;
+    }
+
+    try {
+      const matchedGroup = groups.find(g => String(g.id) === String(task.groupId));
+      const groupNameValue = matchedGroup ? matchedGroup.name : null;
+
+      const response = await fetch(`${API_BASE_URL}/${task.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: task.title,
+          description: task.description,
+          completed: task.completed,
+          pinned: task.pinned ?? false,
+          urgent: task.urgent ?? false,
+          groupName: groupNameValue
+        })
+      });
+
+      if (response.ok) {
+        showToast('Task updated');
+      } else {
+        showToast("Couldn't save changes to database.", 'error');
+      }
+    } catch (err) {
+      showToast("Couldn't reach the server.", 'error');
+    }
+  };
+
   const openCreateModal = () => {
     setCurrentTask({ id: null, title: '', description: '', completed: false, pinned: false, urgent: false, groupId: selectedGroupId });
     setIsEditing(false);
@@ -909,7 +948,8 @@ export function useAppController() {
     handleSaveTask, handleQuickAdd, handleDeleteTask, toggleComplete, toggleUrgent, togglePinned,
     openCreateModal, openEditModal, closeModal, confirmDelete, filteredTasks, completedCount, pendingCount,
     urgentCount, taskKeys, getTaskKey, navItems, filterTitle, isFirstLoad, dailyDoneCount, allDailyDone,
-    todayLabel, isSidebarOpen, setIsSidebarOpen, cardsSideBySide, authInputClass, isAuthScreen, toastPosition
+    todayLabel, isSidebarOpen, setIsSidebarOpen, cardsSideBySide, authInputClass, isAuthScreen, toastPosition,
+    activeTaskId, setActiveTaskId, activeTask, updateTaskBackend
   };
 }
 
