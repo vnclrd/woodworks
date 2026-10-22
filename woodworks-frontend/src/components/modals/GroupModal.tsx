@@ -9,7 +9,7 @@ export default function GroupModal({ app }: Props) {
 <>
 {isGroupModalOpen && (
   <div
-    className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-24 bg-[#2125298A]"
+    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2125298A]"
     onClick={() => setIsGroupModalOpen(false)}
   >
     <div

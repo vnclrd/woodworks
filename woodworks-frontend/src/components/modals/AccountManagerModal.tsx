@@ -9,14 +9,14 @@ export default function AccountManagerModal({ app }: Props) {
 <>
 {isAccountManagerOpen && (
   <div
-    className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-12 sm:pt-16 bg-[#2125298A] overflow-y-auto"
+    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2125298A]"
     onClick={() => setIsAccountManagerOpen(false)}
   >
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="account-manager-title"
-      className="bg-white rounded-md w-full max-w-lg shadow-[0_8px_12px_#21252926,0_0_1px_#2125294F] mb-8"
+      className="bg-white rounded-md w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-[0_8px_12px_#21252926,0_0_1px_#2125294F]"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-[#DEE2E6]">

@@ -9,7 +9,7 @@ export default function DeleteAccountConfirmModal({ app }: Props) {
 <>
 {isDeleteAccountConfirmOpen && (
   <div
-    className="fixed inset-0 z-[55] flex items-start justify-center p-4 pt-28 bg-[#212529A8]"
+    className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-[#212529A8]"
     onClick={() => setIsDeleteAccountConfirmOpen(false)}
   >
     <div
