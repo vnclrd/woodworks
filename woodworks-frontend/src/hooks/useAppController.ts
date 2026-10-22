@@ -748,10 +748,6 @@ export function useAppController() {
   };
 
   useEffect(() => {
-    setIsChatOpen(isLargeScreen);
-  }, [isLargeScreen]);
-
-  useEffect(() => {
     const el = chatScrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [chatMessages, isAssistantTyping, isChatOpen]);
