@@ -73,6 +73,30 @@ export function useAppController() {
   const [dailyTitle, setDailyTitle] = useState('');
   const [today, setToday] = useState(getTodayKey());
 
+  const [activities, setActivities] = useState<Array<{ id: number; text: string; time: string }>>(() => {
+    try {
+      const cached = localStorage.getItem('woodworks_activities');
+      return cached ? JSON.parse(cached) : [
+        { id: 1, text: 'Initialized WoodWorks session', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('woodworks_activities', JSON.stringify(activities));
+  }, [activities]);
+
+  const logActivity = (text: string) => {
+    const newActivity = {
+      id: Date.now(),
+      text,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setActivities(prev => [newActivity, ...prev.slice(0, 49)]); // Keep last 50 activities
+  };
+
   const [mobilePanel, setMobilePanel] = useState<'tasks' | 'daily'>('tasks');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -111,6 +135,7 @@ export function useAppController() {
       setGroupNameInput('');
       setIsGroupModalOpen(false);
       showToast(`Group “${name}” created (Demo Mode)`);
+      logActivity(`Created group "${name}"`);
       return;
     }
 
@@ -123,6 +148,7 @@ export function useAppController() {
       setGroupNameInput('');
       setIsGroupModalOpen(false);
       showToast(`Group “${name}” created`);
+      logActivity(`Created group "${name}"`);
     } catch (err) {
       showToast("Couldn't create the group. Try again.", 'error');
     }
@@ -144,6 +170,7 @@ export function useAppController() {
       setSelectedGroupId(null);
       fetchTasks(true);
       showToast('Group deleted. Tasks moved to "No group".');
+      logActivity('Deleted a task group');
     } catch (err) {
       showToast("Couldn't delete the group. Try again.", 'error');
     }
@@ -601,6 +628,7 @@ export function useAppController() {
       }
       closeModal();
       showToast(isEditing ? 'Task updated' : 'Task created');
+      logActivity(isEditing ? `Updated task "${currentTask.title}"` : `Created task "${currentTask.title}"`);
     }
   };
 
@@ -650,6 +678,7 @@ export function useAppController() {
             previousTaskIds: tasks.map((task) => task.id),
           });
           showToast('Task created');
+          logActivity(`Quick-added task "${title}"`);
         } else {
           showToast("Couldn't create the task. Try again.", 'error');
         }
@@ -681,6 +710,7 @@ export function useAppController() {
           setTasks(tasks.filter(t => t.id !== id));
           saveGroupAssignment(id, null);
           showToast('Task deleted');
+          logActivity('Deleted task');
         } else {
           showToast("Couldn't delete the task. Try again.", 'error');
         }
@@ -719,6 +749,7 @@ export function useAppController() {
     } else {
       setTasks(tasks.map(t => t.id === task.id ? updated : t));
     }
+    logActivity(updated.completed ? `Completed task "${task.title}"` : `Marked task "${task.title}" as to do`);
   };
 
   const toggleUrgent = async (task: Task) => {
@@ -726,6 +757,7 @@ export function useAppController() {
     if (isDemoMode) {
       setTasks(tasks.map(t => t.id === task.id ? updated : t));
       showToast(updated.urgent ? 'Marked as urgent' : 'Urgent tag removed');
+      logActivity(updated.urgent ? `Marked task "${task.title}" as urgent` : `Removed urgent tag from task "${task.title}"`);
       return;
     }
 
@@ -741,6 +773,7 @@ export function useAppController() {
       if (response.ok) {
         setTasks(tasks.map(t => t.id === task.id ? updated : t));
         showToast(updated.urgent ? 'Marked as urgent' : 'Urgent tag removed');
+        logActivity(updated.urgent ? `Marked task "${task.title}" as urgent` : `Removed urgent tag from task "${task.title}"`);
       }
     } catch (err) {
       showToast("Couldn't reach the server.", 'error');
@@ -752,6 +785,7 @@ export function useAppController() {
     if (isDemoMode) {
       setTasks(tasks.map(t => t.id === task.id ? updated : t));
       showToast(updated.pinned ? 'Task pinned to top' : 'Pin removed');
+      logActivity(updated.pinned ? `Pinned task "${task.title}"` : `Unpinned task "${task.title}"`);
       return;
     }
 
@@ -767,6 +801,7 @@ export function useAppController() {
       if (response.ok) {
         setTasks(tasks.map(t => t.id === task.id ? updated : t));
         showToast(updated.pinned ? 'Task pinned to top' : 'Pin removed');
+        logActivity(updated.pinned ? `Pinned task "${task.title}"` : `Unpinned task "${task.title}"`);
       }
     } catch (err) {
       showToast("Couldn't reach the server.", 'error');
@@ -801,6 +836,7 @@ export function useAppController() {
 
       if (response.ok) {
         showToast('Task updated');
+        logActivity(`Updated task "${task.title}"`);
       } else {
         showToast("Couldn't save changes to database.", 'error');
       }
@@ -950,7 +986,8 @@ export function useAppController() {
     openCreateModal, openEditModal, closeModal, confirmDelete, filteredTasks, completedCount, pendingCount,
     urgentCount, taskKeys, getTaskKey, navItems, filterTitle, isFirstLoad, dailyDoneCount, allDailyDone,
     todayLabel, isSidebarOpen, setIsSidebarOpen, isSidebarCollapsed, setIsSidebarCollapsed, cardsSideBySide,
-    authInputClass, isAuthScreen, toastPosition, activeTaskId, setActiveTaskId, activeTask, updateTaskBackend
+    authInputClass, isAuthScreen, toastPosition, activeTaskId, setActiveTaskId, activeTask, updateTaskBackend,
+    activities, logActivity
   };
 }
 

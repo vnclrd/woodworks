@@ -530,11 +530,27 @@ export default function RightSidebar({ app }: RightSidebarProps) {
             )}
 
             {activeTab === 3 && (
-              <ComingSoon
-                icon={Activity}
-                title="Activity Stream"
-                description="Recent updates and notifications will appear here."
-              />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-white/20 pb-2">
+                  <h3 className="font-semibold">Activity Stream</h3>
+                  <span className="text-xs text-[#FFE8D1]">Recent actions</span>
+                </div>
+
+                <div className="space-y-2 max-h-100 overflow-y-auto pr-1">
+                  {app.activities && app.activities.length > 0 ? (
+                    app.activities.map((act: any) => (
+                      <div key={act.id} className="rounded bg-[#914000] p-2.5 text-xs space-y-1 shadow-sm">
+                        <p className="text-white font-medium">{act.text}</p>
+                        <p className="text-[10px] text-[#FFE8D1]/70">{act.time}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-xs text-[#FFE8D1]/70">
+                      No activity recorded yet.
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {activeTab === 4 && (
