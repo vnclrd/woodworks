@@ -1,5 +1,3 @@
-import type { ChatMessage } from '../types/task';
-
 const urlParams = new URLSearchParams(window.location.search);
 export const isDemoMode = urlParams.get('demo') === 'true' || (import.meta as any).env.VITE_DEMO_MODE === 'true';
 
@@ -15,15 +13,3 @@ export const GROUPS_KEY = isDemoMode ? 'woodworks_demo_task_groups' : 'woodworks
 export const TASK_GROUP_ASSIGNMENTS_KEY = isDemoMode
   ? 'woodworks_demo_task_group_assignments'
   : 'woodworks_task_group_assignments';
-
-export const WELCOME_MESSAGE: ChatMessage = {
-  id: 0,
-  role: 'assistant',
-  text: "Hi! I'm your task assistant. Once I'm connected, I can help you plan your day, summarize your tasks and keep track of what's urgent."
-};
-
-export const CHAT_SUGGESTIONS = [
-  'Summarize my open tasks',
-  "What's urgent today?",
-  'Help me plan my day',
-];

@@ -1,10 +1,10 @@
-import { Search, X, Sparkles, RefreshCw, Plus, LogOut } from 'lucide-react';
+import { Search, X, PanelRight, RefreshCw, Plus, LogOut } from 'lucide-react';
 import type { AppController } from '../../hooks/useAppController';
 
 type Props = { app: AppController };
 
 export default function AppHeader({ app }: Props) {
-  const { searchQuery, setSearchQuery, setSortOrder, sortOrder, isLargeScreen, setIsChatOpen, fetchTasks, fetchDailyTasks, loading, openCreateModal, isDemoMode, handleLogout } = app;
+  const { searchQuery, setSearchQuery, setSortOrder, sortOrder, isLargeScreen, setIsSidebarOpen, fetchTasks, fetchDailyTasks, loading, openCreateModal, isDemoMode, handleLogout } = app;
   return (
 <header className="shrink-0 h-14 bg-white border-b border-[#DEE2E6] flex items-center gap-2 sm:gap-4 px-4 z-20">
   <div className="flex items-center gap-2.5 shrink-0 md:w-60">
@@ -50,12 +50,12 @@ export default function AppHeader({ app }: Props) {
   <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
     {!isLargeScreen && (
       <button
-        onClick={() => setIsChatOpen(true)}
-        title="AI assistant"
-        aria-label="Open AI assistant"
-        className="h-9 w-9 flex items-center justify-center rounded text-[#BF5700] hover:bg-[#FFEAD6] transition-colors cursor-pointer"
+        onClick={() => setIsSidebarOpen(prev => !prev)}
+        title="Toggle Utility Sidebar"
+        aria-label="Toggle utility sidebar"
+        className="h-9 w-9 flex items-center justify-center rounded text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer"
       >
-        <Sparkles className="w-4 h-4" />
+        <PanelRight className="w-4 h-4" />
       </button>
     )}
     <button

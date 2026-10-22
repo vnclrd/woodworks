@@ -3,7 +3,6 @@ import { CheckSquare, Clock, Flag, ListTodo } from 'lucide-react';
 import {
   API_BASE_URL,
   BASE_URL,
-  CHAT_SUGGESTIONS,
   DAILY_API_BASE_URL,
   DAILY_KEY,
   GROUPS_KEY,
@@ -12,9 +11,8 @@ import {
   TASKS_CACHE_KEY,
   TASK_GROUP_ASSIGNMENTS_KEY,
   TOKEN_KEY,
-  WELCOME_MESSAGE,
 } from '../config/appConfig';
-import type { ChatMessage, DailyTask, Task, TaskGroup, Toast } from '../types/task';
+import type { DailyTask, Task, TaskGroup, Toast } from '../types/task';
 import { getTodayKey, loadJSON } from '../utils/storage';
 import { mergeLocalGroupAssignments } from '../utils/taskGroups';
 import { useMediaQuery } from './useMediaQuery';
@@ -80,12 +78,6 @@ export function useAppController() {
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
   const hasRoomForBothCardsWithChat = useMediaQuery('(min-width: 1440px)');
   const hasRoomForBothCardsWithRail = useMediaQuery('(min-width: 1240px)');
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
-  const [chatInput, setChatInput] = useState('');
-  const [isAssistantTyping, setIsAssistantTyping] = useState(false);
-  const chatScrollRef = useRef<HTMLDivElement>(null);
-  const chatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = (message: string, type: Toast['type'] = 'success') => setToast({ message, type });
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
@@ -359,7 +351,7 @@ export function useAppController() {
       setTimeout(() => {
         const mockTasks = [
           { id: 1, title: 'Review Q4 Cloud Architecture', description: 'Analyze GCP Cloud Run scaling parameters', completed: true, pinned: false, urgent: false },
-          { id: 2, title: 'Implement AI Task Assistant', description: 'Draft natural language CRUD prompt handlers', completed: false, pinned: true, urgent: false },
+          { id: 2, title: 'Implement Sidebar Features', description: 'Draft each design of the feature', completed: false, pinned: true, urgent: false },
           { id: 3, title: 'Optimize PostgreSQL Queries', description: 'Review Neon connection pooler performance', completed: false, pinned: false, urgent: true }
         ];
         setTasks(mergeLocalGroupAssignments(mockTasks, TASK_GROUP_ASSIGNMENTS_KEY));
@@ -777,45 +769,6 @@ export function useAppController() {
     }
   };
 
-  const sendChatMessage = (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || isAssistantTyping) return;
-
-    setChatMessages(prev => [...prev, { id: Date.now(), role: 'user', text: trimmed }]);
-    setChatInput('');
-    setIsAssistantTyping(true);
-
-    chatTimerRef.current = setTimeout(() => {
-      setChatMessages(prev => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          role: 'assistant',
-          text: "The AI assistant isn't connected yet. Once it's integrated, I'll be able to help with this."
-        }
-      ]);
-      setIsAssistantTyping(false);
-    }, 900);
-  };
-
-  const resetChat = () => {
-    if (chatTimerRef.current) clearTimeout(chatTimerRef.current);
-    setChatMessages([WELCOME_MESSAGE]);
-    setChatInput('');
-    setIsAssistantTyping(false);
-  };
-
-  useEffect(() => {
-    const el = chatScrollRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [chatMessages, isAssistantTyping, isChatOpen]);
-
-  useEffect(() => {
-    return () => {
-      if (chatTimerRef.current) clearTimeout(chatTimerRef.current);
-    };
-  }, []);
-
   const openCreateModal = () => {
     setCurrentTask({ id: null, title: '', description: '', completed: false, pinned: false, urgent: false, groupId: selectedGroupId });
     setIsEditing(false);
@@ -848,11 +801,10 @@ export function useAppController() {
       else if (isModalOpen) closeModal();
       else if (isGroupModalOpen) setIsGroupModalOpen(false);
       else if (isAccountManagerOpen) setIsAccountManagerOpen(false);
-      else if (!isLargeScreen && isChatOpen) setIsChatOpen(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isModalOpen, taskToDelete, isLargeScreen, isChatOpen, isGroupModalOpen, isAccountManagerOpen, isDeleteAccountConfirmOpen]);
+  }, [isModalOpen, taskToDelete, isLargeScreen, isGroupModalOpen, isAccountManagerOpen, isDeleteAccountConfirmOpen]);
 
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -918,8 +870,9 @@ export function useAppController() {
   const allDailyDone = dailyTasks.length > 0 && dailyDoneCount === dailyTasks.length;
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
-  const isChatColumnOpen = isLargeScreen && isChatOpen;
-  const cardsSideBySide = isChatColumnOpen ? hasRoomForBothCardsWithChat : hasRoomForBothCardsWithRail;
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const isSidebarColumnOpen = isLargeScreen || isSidebarOpen;
+  const cardsSideBySide = isSidebarColumnOpen ? hasRoomForBothCardsWithChat : hasRoomForBothCardsWithRail;
 
   const authInputClass =
     'w-full h-11 bg-white border-2 border-[#DEE2E6] hover:bg-[#F8F9FA] rounded px-3 text-sm placeholder-[#5C636A] focus:outline-none focus:border-[#212529] focus:bg-white';
@@ -928,8 +881,8 @@ export function useAppController() {
   const toastPosition = isAuthScreen
     ? 'top-4 right-4'
     : isDemoMode
-      ? `top-[6.4rem] left-4 md:left-[17rem] ${isChatColumnOpen ? 'lg:right-[21.5rem] lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`
-      : `top-[4.25rem] left-4 md:left-[17rem] ${isChatColumnOpen ? 'lg:right-[21.5rem] lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`;
+      ? `top-[6.4rem] left-4 md:left-[17rem] ${isSidebarColumnOpen ? 'lg:right-[21.5rem] lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`
+      : `top-[4.25rem] left-4 md:left-[17rem] ${isSidebarColumnOpen ? 'lg:right-[21.5rem] lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`;
 
 
   return {
@@ -949,18 +902,14 @@ export function useAppController() {
     isEditing, setIsEditing, isSaving, setIsSaving, quickTitle, setQuickTitle,
     taskToDelete, setTaskToDelete, toast, setToast, dailyTasks, setDailyTasks,
     dailyTitle, setDailyTitle, today, setToday, mobilePanel, setMobilePanel,
-    isLargeScreen, hasRoomForBothCardsWithChat, hasRoomForBothCardsWithRail,
-    isChatOpen, setIsChatOpen, chatMessages, setChatMessages, chatInput, setChatInput,
-    isAssistantTyping, setIsAssistantTyping, chatScrollRef, chatTimerRef, showToast,
+    isLargeScreen, hasRoomForBothCardsWithChat, hasRoomForBothCardsWithRail, showToast,
     sortOrder, setSortOrder, saveGroupAssignment, handleCreateGroup, handleDeleteGroup, groupToDelete, 
     setGroupToDelete, handleChangePassword, handleDeleteAccount, switchAuthView, handleAuthSubmit,
     clearSession, handleLogout, fetchTasks, fetchDailyTasks, handleAddDaily, toggleDaily, deleteDaily,
     handleSaveTask, handleQuickAdd, handleDeleteTask, toggleComplete, toggleUrgent, togglePinned,
-    sendChatMessage, resetChat, openCreateModal, openEditModal, closeModal, confirmDelete,
-    filteredTasks, completedCount, pendingCount, urgentCount, taskKeys, getTaskKey,
-    navItems, filterTitle, isFirstLoad, dailyDoneCount, allDailyDone, todayLabel,
-    isChatColumnOpen, cardsSideBySide, authInputClass, isAuthScreen, toastPosition,
-    CHAT_SUGGESTIONS,
+    openCreateModal, openEditModal, closeModal, confirmDelete, filteredTasks, completedCount, pendingCount,
+    urgentCount, taskKeys, getTaskKey, navItems, filterTitle, isFirstLoad, dailyDoneCount, allDailyDone,
+    todayLabel, isSidebarOpen, setIsSidebarOpen, cardsSideBySide, authInputClass, isAuthScreen, toastPosition
   };
 }
 

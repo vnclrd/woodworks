@@ -1,6 +1,6 @@
 import AuthScreen from './components/auth/AuthScreen';
-import AssistantPanel from './components/assistant/AssistantPanel';
 import AppHeader from './components/layout/AppHeader';
+import RightSidebar from './components/layout/RightSidebar';
 import Sidebar from './components/layout/Sidebar';
 import AccountManagerModal from './components/modals/AccountManagerModal';
 import DeleteAccountConfirmModal from './components/modals/DeleteAccountConfirmModal';
@@ -31,7 +31,7 @@ export default function App() {
           <div className="flex flex-1 min-h-0">
             <Sidebar app={app} />
             <MainContent app={app} />
-            <AssistantPanel app={app} />
+            <RightSidebar app={app} />
           </div>
 
           <TaskModal app={app} />

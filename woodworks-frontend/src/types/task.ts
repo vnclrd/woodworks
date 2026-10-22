@@ -25,9 +25,3 @@ export interface Toast {
   message: string;
   type: 'success' | 'error';
 }
-
-export interface ChatMessage {
-  id: number;
-  role: 'user' | 'assistant';
-  text: string;
-}
