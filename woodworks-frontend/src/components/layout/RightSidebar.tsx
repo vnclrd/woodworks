@@ -52,6 +52,122 @@ function ComingSoon({ icon: Icon, title, description }: { icon: LucideIcon; titl
   );
 }
 
+function ProductivityTimer({ app }: { app: AppController }) {
+  const [mode, setMode] = useState<'work' | 'shortBreak' | 'longBreak'>('work');
+  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
+  const [isRunning, setIsRunning] = useState(false);
+
+  // Timer configuration presets (in seconds)
+  const durations = {
+    work: 25 * 60,
+    shortBreak: 5 * 60,
+    longBreak: 15 * 60,
+  };
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+    if (isRunning && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && isRunning) {
+      setIsRunning(false);
+      app.showToast(mode === 'work' ? 'Pomodoro session completed! Take a break.' : 'Break ended. Time to work!');
+    }
+    return () => clearInterval(timer);
+  }, [isRunning, timeLeft, mode]);
+
+  const switchMode = (newMode: 'work' | 'shortBreak' | 'longBreak') => {
+    setMode(newMode);
+    setIsRunning(false);
+    setTimeLeft(durations[newMode]);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progressPercent = ((durations[mode] - timeLeft) / durations[mode]) * 100;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-white/20 pb-3">
+        <h3 className="font-semibold">Productivity Timer</h3>
+        <span className="shrink-0 rounded bg-[#212529] px-2 py-0.5 text-xs font-medium text-white capitalize">
+          {mode === 'work' ? 'Work Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'}
+        </span>
+      </div>
+
+      {/* Mode Selector Tabs */}
+      <div className="grid grid-cols-3 gap-1 rounded bg-[#914000] p-1 text-xs font-medium">
+        <button
+          type="button"
+          onClick={() => switchMode('work')}
+          className={`py-1.5 rounded transition-colors cursor-pointer ${mode === 'work' ? 'bg-[#212529] text-white shadow-inner' : 'hover:bg-[#7D3600]'}`}
+        >
+          Pomodoro
+        </button>
+        <button
+          type="button"
+          onClick={() => switchMode('shortBreak')}
+          className={`py-1.5 rounded transition-colors cursor-pointer ${mode === 'shortBreak' ? 'bg-[#212529] text-white shadow-inner' : 'hover:bg-[#7D3600]'}`}
+        >
+          Short Break
+        </button>
+        <button
+          type="button"
+          onClick={() => switchMode('longBreak')}
+          className={`py-1.5 rounded transition-colors cursor-pointer ${mode === 'longBreak' ? 'bg-[#212529] text-white shadow-inner' : 'hover:bg-[#7D3600]'}`}
+        >
+          Long Break
+        </button>
+      </div>
+
+      {/* Timer Display Circle / Box */}
+      <div className="relative rounded-lg bg-[#914000] p-6 text-center space-y-4 shadow-inner">
+        <div className="text-4xl font-mono font-bold tracking-wider text-white">
+          {formatTime(timeLeft)}
+        </div>
+
+        {/* Progress Bar */}
+        <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
+          <div
+            className="h-full bg-white transition-[width] duration-500"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setIsRunning(!isRunning)}
+            className="h-10 px-6 rounded bg-[#212529] hover:bg-[#495057] text-sm font-semibold text-white transition-colors cursor-pointer shadow"
+          >
+            {isRunning ? 'Pause' : 'Start'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsRunning(false);
+              setTimeLeft(durations[mode]);
+            }}
+            className="h-10 px-4 rounded bg-white/15 hover:bg-white/25 text-sm font-medium text-white transition-colors cursor-pointer"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <p className="text-xs text-[#FFE8D1] text-center">
+        Stay focused on your selected task or log your work intervals.
+      </p>
+    </div>
+  );
+}
+
 export default function RightSidebar({ app }: RightSidebarProps) {
   const { isSidebarCollapsed: isCollapsed, setIsSidebarCollapsed: setIsCollapsed } = app;
   const [activeTab, setActiveTab] = useState(0);
@@ -391,13 +507,9 @@ export default function RightSidebar({ app }: RightSidebarProps) {
           >
             {activeTab === 0 && renderInspector()}
 
-            {activeTab === 1 && (
-              <ComingSoon
-                icon={Timer}
-                title="Productivity Timer"
-                description="Pomodoro and time tracking controls will live here."
-              />
-            )}
+            {activeTab === 1 && (() => {
+              return <ProductivityTimer app={app} />;
+            })()}
 
             {activeTab === 2 && (
               <div className="space-y-3">
