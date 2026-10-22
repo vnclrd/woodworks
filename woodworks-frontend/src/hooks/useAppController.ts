@@ -777,7 +777,7 @@ export function useAppController() {
     }
   };
 
-  const sendChatMessage = (text: string) => {
+  const sendChatMessage = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isAssistantTyping) return;
 
@@ -785,17 +785,46 @@ export function useAppController() {
     setChatInput('');
     setIsAssistantTyping(true);
 
-    chatTimerRef.current = setTimeout(() => {
+    try {
+      const response = await fetch(`${BASE_URL.replace(/\/$/, '')}/api/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message: trimmed })
+      });
+
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch {}
+
+      if (!response.ok) throw new Error(data.error || 'AI service unavailable');
+
       setChatMessages(prev => [
         ...prev,
         {
           id: Date.now() + 1,
           role: 'assistant',
-          text: "The AI assistant isn't connected yet. Once it's integrated, I'll be able to help with this."
+          text: data.reply
         }
       ]);
+
+      // Background sync tasks in case the AI performed any operations
+      fetchTasks(true);
+    } catch (err: any) {
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: 'assistant',
+          text: err.message || 'Sorry, I ran into an issue processing your request.'
+        }
+      ]);
+    } finally {
       setIsAssistantTyping(false);
-    }, 900);
+    }
   };
 
   const resetChat = () => {
