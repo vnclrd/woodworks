@@ -43,11 +43,15 @@ export default function TaskModal({ app }: Props) {
             type="text"
             required
             autoFocus
+            maxLength={100}
             placeholder="What needs to be done?"
             value={currentTask.title}
             onChange={(e) => setCurrentTask({ ...currentTask, title: e.target.value })}
             className="w-full h-10 bg-[#F8F9FA] border-2 border-[#DEE2E6] hover:bg-[#E9ECEF] rounded px-3 text-sm placeholder-[#5C636A] focus:outline-none focus:border-[#212529] focus:bg-white"
           />
+          <div className="flex justify-end mt-1">
+            <span className="text-[11px] text-[#868E96]">{currentTask.title.length}/100</span> {/* <-- Add live counter */}
+          </div>
         </div>
 
         <div>
@@ -73,11 +77,15 @@ export default function TaskModal({ app }: Props) {
           <textarea
             id="description"
             rows={4}
+            maxLength={1000}
             placeholder="Add details about this task"
             value={currentTask.description || ''}
             onChange={(e) => setCurrentTask({ ...currentTask, description: e.target.value })}
             className="w-full bg-[#F8F9FA] border-2 border-[#DEE2E6] hover:bg-[#E9ECEF] rounded px-3 py-2 text-sm placeholder-[#5C636A] focus:outline-none focus:border-[#212529] focus:bg-white resize-none"
           />
+          <div className="flex justify-end mt-1">
+            <span className="text-[11px] text-[#868E96]">{(currentTask.description || '').length}/1000</span> {/* <-- Add live counter */}
+          </div>
         </div>
 
         <div className="space-y-2.5">

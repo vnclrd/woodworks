@@ -230,17 +230,24 @@ export default function MainContent({ app }: Props) {
         {!isFirstLoad && (
           <form
             onSubmit={handleQuickAdd}
-            className="shrink-0 relative flex items-center gap-3 px-4 h-12 border-t border-[#DEE2E6] bg-[#F8F9FA] focus-within:bg-white"
+            className={`shrink-0 relative flex items-center gap-3 px-4 h-12 border-t bg-[#F8F9FA] focus-within:bg-white transition-colors ${
+              quickTitle.length >= 100 ? 'border-2 border-[#C9372C]' : 'border-[#DEE2E6]'
+            }`}
           >
-            <Plus className="w-5 h-5 text-[#5C636A] shrink-0" />
+            <Plus className={`w-5 h-5 shrink-0 ${quickTitle.length >= 100 ? 'text-[#C9372C]' : 'text-[#5C636A]'}`} />
             <input
               type="text"
               aria-label="Task summary"
+              maxLength={100}
               placeholder={isListening ? "Listening... speak your task summary" : "Create a task and press Enter"}
               value={quickTitle}
               onChange={(e) => setQuickTitle(e.target.value)}
               className="flex-1 bg-transparent text-sm placeholder-[#5C636A] focus:outline-none"
             />
+
+            <span className={`text-[11px] font-medium shrink-0 ${quickTitle.length >= 100 ? 'text-[#C9372C]' : 'text-[#5C636A]'}`}>
+              {quickTitle.length}/100
+            </span>
 
             {/* Microphone toggle button */}
             <button
@@ -366,6 +373,7 @@ export default function MainContent({ app }: Props) {
           <input
             type="text"
             aria-label="Daily task summary"
+            maxLength={100}
             placeholder="Add a daily task and press Enter"
             value={dailyTitle}
             onChange={(e) => setDailyTitle(e.target.value)}

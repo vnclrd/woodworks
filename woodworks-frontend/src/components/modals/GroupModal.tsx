@@ -41,13 +41,16 @@ export default function GroupModal({ app }: Props) {
             id="group-name"
             autoFocus
             required
-            maxLength={40}
+            maxLength={50} // <-- Update to match backend limit (50 characters)
             value={groupNameInput}
             onChange={(e) => setGroupNameInput(e.target.value)}
             placeholder="e.g. Personal, Work, Side projects"
             className="w-full h-10 bg-[#F8F9FA] border-2 border-[#DEE2E6] hover:bg-[#E9ECEF] rounded px-3 text-sm placeholder-[#5C636A] focus:outline-none focus:border-[#212529] focus:bg-white"
           />
-          <p className="text-xs text-[#868E96] mt-1.5">Groups are saved securely to your cloud database.</p>
+          <div className="flex items-center justify-between mt-1.5">
+            <p className="text-xs text-[#868E96]">Groups are saved securely to your cloud database.</p>
+            <p className="text-xs text-[#868E96]">{groupNameInput.length}/50</p> {/* <-- Optional live character counter */}
+          </div>
         </div>
         <div className="flex items-center justify-end gap-2 pt-1">
           <button

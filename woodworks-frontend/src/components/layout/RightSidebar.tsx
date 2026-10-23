@@ -593,6 +593,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
               <input
                 id="inspector-title"
                 type="text"
+                maxLength={100}
                 value={task.title}
                 aria-invalid={!task.title.trim()}
                 onFocus={() => { titleOnFocus.current = task.title; }}
@@ -616,6 +617,9 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                 }}
                 className={`${fieldClass} h-10`}
               />
+              <div className="flex justify-end mt-1">
+                <span className="text-[11px] text-[#FFE8D1]">{task.title.length}/100</span> {/* <-- Add live counter */}
+              </div>
             </div>
 
             {/* Description */}
@@ -627,6 +631,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                 id="inspector-description"
                 rows={5}
                 value={task.description || ''}
+                maxLength={1000}
                 onFocus={() => { descOnFocus.current = task.description || ''; }}
                 onChange={(e) => {
                   const updated = { ...task, description: e.target.value };
@@ -641,11 +646,14 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                 className={`${fieldClass} py-2 resize-none`}
                 placeholder="Add a detailed description..."
               />
-              <p className="text-xs mt-1.5">
-                {task.title.trim()
-                  ? 'Title and description save when you click away.'
-                  : 'A title is required. The previous one is restored if you leave it empty.'}
-              </p>
+              <div className="flex justify-between items-center mt-1.5">
+                <p className="text-xs">
+                  {task.title.trim()
+                    ? 'Title and description save when you click away.'
+                    : 'A title is required. The previous one is restored if you leave it empty.'}
+                </p>
+                <span className="text-[11px] text-[#FFE8D1]">{(task.description || '').length}/1000</span> {/* <-- Add live counter */}
+              </div>
             </div>
 
             {/* Priority toggles */}
