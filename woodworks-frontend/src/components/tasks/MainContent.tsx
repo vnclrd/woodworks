@@ -83,7 +83,7 @@ export default function MainContent({ app }: Props) {
     {/* Adjusted grid proportions: main task takes more space, daily tasks card is made smaller */}
     <div className={`flex-1 min-h-0 grid grid-rows-[minmax(0,1fr)] gap-4 ${cardsSideBySide ? 'grid-cols-[minmax(0,3.2fr)_minmax(0,0.85fr)]' : 'grid-cols-1'}`}>
       <div className={`${cardsSideBySide || mobilePanel === 'tasks' ? 'flex' : 'hidden'} @container min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}>
-        <div className="shrink-0 hidden @xl:grid grid-cols-[2rem_5rem_1fr_9rem_8rem] gap-3 px-4 h-10 items-center border-b border-[#DEE2E6] bg-[#F8F9FA] text-xs font-semibold text-[#5C636A]">
+        <div className="shrink-0 hidden @xl:grid grid-cols-[2rem_5rem_1fr_11.5rem_8rem] gap-3 px-4 h-10 items-center border-b border-[#DEE2E6] bg-[#F8F9FA] text-xs font-semibold text-[#5C636A]">
           <span />
           <span>Key</span>
           <span>Summary</span>
@@ -91,7 +91,7 @@ export default function MainContent({ app }: Props) {
           <span className="text-right">Actions</span>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="scrollbar-light flex-1 min-h-0 overflow-y-auto">
           {isFirstLoad ? (
             <ul className="divide-y divide-[#DEE2E6]" aria-busy="true" aria-label="Loading tasks">
               {[0, 1, 2, 3, 4].map((i) => (
@@ -124,7 +124,7 @@ export default function MainContent({ app }: Props) {
                 return (
                   <li
                     key={task.id}
-                    className={`grid grid-cols-[2rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_9rem_8rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] transition-colors ${
+                    className={`grid grid-cols-[2rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_11.5rem_8rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] transition-colors ${
                       pinned ? 'bg-[#FFF9F0] shadow-[inset_3px_0_0_#D97706]' : urgent ? 'shadow-[inset_3px_0_0_#BF5700]' : ''
                     }`}
                   >
@@ -160,19 +160,19 @@ export default function MainContent({ app }: Props) {
                       )}
                     </button>
 
-                    <div className="hidden @xl:flex items-center gap-1.5 min-w-0 shrink-0">
+                    <div className="hidden @xl:flex flex-wrap items-center content-center gap-1 min-w-0">
                       {pinned && (
-                        <span className="inline-flex items-center px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FEF3C7] text-[#B45309] leading-none shrink-0">
+                        <span className="inline-flex items-center px-1.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FEF3C7] text-[#B45309] leading-none shrink-0">
                           Pinned
                         </span>
                       )}
                       {urgent && (
-                        <span className="inline-flex items-center px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FFEAD6] text-[#A34A00] leading-none shrink-0">
+                        <span className="inline-flex items-center px-1.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FFEAD6] text-[#A34A00] leading-none shrink-0">
                           Urgent
                         </span>
                       )}
                       <span
-                        className={`inline-flex items-center px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider leading-none shrink-0 ${
+                        className={`inline-flex items-center px-1.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider leading-none shrink-0 ${
                           task.completed
                             ? 'bg-[#DCFFF1] text-[#216E4E]'
                             : 'bg-[#E9ECEF] text-[#495057]'
@@ -309,7 +309,7 @@ export default function MainContent({ app }: Props) {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="scrollbar-light flex-1 min-h-0 overflow-y-auto">
           {dailyTasks.length === 0 ? (
             <div className="py-12 px-6 text-center">
               <p className="font-semibold">No daily tasks yet</p>

@@ -63,7 +63,7 @@ export default function Sidebar({ app }: Props) {
       </div>
     </div>
 
-    <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5 pr-0.5">
+    <div className="scrollbar-on-dark flex-1 min-h-0 overflow-y-auto space-y-0.5 pr-0.5">
       {groups.length === 0 ? (
         <p className="px-2.5 py-2 text-xs leading-5 text-white/45">Create a group to organize related tasks.</p>
       ) : groups.map((group) => {

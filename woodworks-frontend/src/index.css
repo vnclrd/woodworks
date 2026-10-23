@@ -11,3 +11,47 @@ a:focus-visible {
 aside button:focus-visible {
   outline-color: #ffffff;
 }
+
+/* Themed scrollbars: pick the variant that matches the surface behind the scrollbar */
+.scrollbar-light {
+  --sb-thumb: #ADB5BD;
+  --sb-thumb-hover: #6C757D;
+  --sb-track: transparent;
+}
+.scrollbar-on-orange {
+  --sb-thumb: rgba(255, 255, 255, 0.7);
+  --sb-thumb-hover: #FFFFFF;
+  --sb-track: rgba(0, 0, 0, 0.12);
+}
+.scrollbar-on-dark {
+  --sb-thumb: rgba(255, 255, 255, 0.45);
+  --sb-thumb-hover: rgba(255, 255, 255, 0.8);
+  --sb-track: transparent;
+}
+
+/* Chrome, Edge, Safari */
+:is(.scrollbar-light, .scrollbar-on-orange, .scrollbar-on-dark)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+:is(.scrollbar-light, .scrollbar-on-orange, .scrollbar-on-dark)::-webkit-scrollbar-track {
+  background: var(--sb-track);
+  border-radius: 9999px;
+}
+:is(.scrollbar-light, .scrollbar-on-orange, .scrollbar-on-dark)::-webkit-scrollbar-thumb {
+  background-color: var(--sb-thumb);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+:is(.scrollbar-light, .scrollbar-on-orange, .scrollbar-on-dark)::-webkit-scrollbar-thumb:hover {
+  background-color: var(--sb-thumb-hover);
+}
+
+/* Firefox */
+@supports not selector(::-webkit-scrollbar) {
+  :is(.scrollbar-light, .scrollbar-on-orange, .scrollbar-on-dark) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sb-thumb) transparent;
+  }
+}

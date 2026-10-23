@@ -12,6 +12,13 @@ import {
   Flag,
   Trash2,
   CheckCircle2,
+  Copy,
+  Play,
+  Pause,
+  RotateCcw,
+  SkipForward,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AppController } from '../../hooks/useAppController';
@@ -22,6 +29,8 @@ interface RightSidebarProps {
 
 const NOTES_KEY = 'woodworks_scratchpad';
 const NOTES_MAX_LENGTH = 5000;
+const SESSIONS_KEY = 'woodworks_pomodoro_sessions';
+const SOUND_KEY = 'woodworks_pomodoro_sound';
 
 const TABS = [
   { id: 0, label: 'Inspector', icon: FileText },
@@ -35,10 +44,24 @@ const TABS = [
 const fieldClass =
   'w-full rounded bg-white px-3 text-sm text-[#212529] placeholder-[#5C636A] border-2 border-transparent focus:outline-none focus:border-[#212529]';
 
-// Friendly placeholder for tools that are not built yet
-function ComingSoon({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
+// ---------------------------------------------------------------------------
+// Small shared pieces
+// ---------------------------------------------------------------------------
+
+// Friendly empty state used by several tabs (optional badge, e.g. "Coming soon")
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  badge,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  badge?: string;
+}) {
   return (
-    <div className="rounded-md bg-[#A34A00] px-4 py-8 text-center space-y-3">
+    <div className="rounded-md bg-[#914000] px-4 py-10 text-center space-y-3">
       <div className="mx-auto w-12 h-12 rounded-full bg-white/15 flex items-center justify-center">
         <Icon size={22} aria-hidden="true" />
       </div>
@@ -46,133 +69,373 @@ function ComingSoon({ icon: Icon, title, description }: { icon: LucideIcon; titl
         <h3 className="text-sm font-semibold">{title}</h3>
         <p className="text-xs leading-5 text-[#FFE8D1] mt-1">{description}</p>
       </div>
-      <span className="inline-block rounded-sm bg-white px-1.5 text-[10px] font-bold uppercase leading-4 text-[#A34A00]">
-        Coming soon
-      </span>
+      {badge && (
+        <span className="inline-block rounded-sm bg-white px-1.5 text-[10px] font-bold uppercase leading-4 text-[#914000]">
+          {badge}
+        </span>
+      )}
     </div>
   );
 }
 
-function ProductivityTimer({ app }: { app: AppController }) {
-  const [mode, setMode] = useState<'work' | 'shortBreak' | 'longBreak'>('work');
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
-  const [isRunning, setIsRunning] = useState(false);
+// ---------------------------------------------------------------------------
+// Focus timer
+// The timer state lives in the sidebar itself (not in the Timer tab), so it keeps running when you
+// switch tabs. It measures real clock time, so it stays accurate even if the browser tab is in the background.
+// ---------------------------------------------------------------------------
 
-  // Timer configuration presets (in seconds)
-  const durations = {
-    work: 25 * 60,
-    shortBreak: 5 * 60,
-    longBreak: 15 * 60,
-  };
+type TimerMode = 'work' | 'shortBreak' | 'longBreak';
+
+const TIMER_DURATIONS: Record<TimerMode, number> = {
+  work: 25 * 60,
+  shortBreak: 5 * 60,
+  longBreak: 15 * 60,
+};
+
+const TIMER_LABELS: Record<TimerMode, string> = {
+  work: 'Focus',
+  shortBreak: 'Short break',
+  longBreak: 'Long break',
+};
+
+const getTodayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+function formatTime(totalSeconds: number) {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function useFocusTimer(app: AppController) {
+  const [mode, setMode] = useState<TimerMode>('work');
+  const [remaining, setRemaining] = useState(TIMER_DURATIONS.work);
+  const [isRunning, setIsRunning] = useState(false);
+  const [sessionsToday, setSessionsToday] = useState<number>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SESSIONS_KEY) || 'null');
+      return saved && saved.date === getTodayKey() ? Number(saved.count) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [soundOn, setSoundOn] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SOUND_KEY) !== 'off';
+    } catch {
+      return true;
+    }
+  });
+
+  const endsAtRef = useRef<number | null>(null);
+  const audioRef = useRef<AudioContext | null>(null);
+  const originalTitleRef = useRef('');
+  const modeRef = useRef(mode);
+  const sessionsRef = useRef(sessionsToday);
+  const soundRef = useRef(soundOn);
+  modeRef.current = mode;
+  sessionsRef.current = sessionsToday;
+  soundRef.current = soundOn;
+
+  // Remember today's finished sessions and the sound preference
+  useEffect(() => {
+    try {
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify({ date: getTodayKey(), count: sessionsToday }));
+    } catch {
+      // Storage unavailable: counts just stay in memory
+    }
+  }, [sessionsToday]);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (isRunning && timeLeft > 0) {
-      timer = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && isRunning) {
-      setIsRunning(false);
-      app.showToast(mode === 'work' ? 'Pomodoro session completed! Take a break.' : 'Break ended. Time to work!');
+    try {
+      localStorage.setItem(SOUND_KEY, soundOn ? 'on' : 'off');
+    } catch {
+      // Storage unavailable
     }
-    return () => clearInterval(timer);
-  }, [isRunning, timeLeft, mode]);
+  }, [soundOn]);
 
-  const switchMode = (newMode: 'work' | 'shortBreak' | 'longBreak') => {
-    setMode(newMode);
+  const playBeep = () => {
+    const ctx = audioRef.current;
+    if (!soundRef.current || !ctx) return;
+    [0, 0.25, 0.5].forEach((offset) => {
+      const start = ctx.currentTime + offset;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.2, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.25);
+    });
+  };
+
+  const goTo = (next: TimerMode) => {
+    endsAtRef.current = null;
     setIsRunning(false);
-    setTimeLeft(durations[newMode]);
+    setMode(next);
+    setRemaining(TIMER_DURATIONS[next]);
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  // Called when the countdown reaches zero: count the session and queue up the next phase (not auto-started)
+  const finish = () => {
+    endsAtRef.current = null;
+    setIsRunning(false);
+    playBeep();
+
+    if (modeRef.current === 'work') {
+      const count = sessionsRef.current + 1;
+      setSessionsToday(count);
+      const next: TimerMode = count % 4 === 0 ? 'longBreak' : 'shortBreak';
+      setMode(next);
+      setRemaining(TIMER_DURATIONS[next]);
+      app.showToast(count % 4 === 0 ? 'Great work! Time for a long break.' : 'Focus session complete! Take a short break.');
+    } else {
+      setMode('work');
+      setRemaining(TIMER_DURATIONS.work);
+      app.showToast('Break over. Ready for the next focus session?');
+    }
+  };
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+
+  // Countdown: derived from the clock, so background tabs and throttled timers don't cause drift
+  useEffect(() => {
+    if (!isRunning) return;
+    const id = setInterval(() => {
+      if (endsAtRef.current === null) return;
+      const left = Math.max(0, Math.round((endsAtRef.current - Date.now()) / 1000));
+      setRemaining(left);
+      if (left === 0) finishRef.current();
+    }, 250);
+    return () => clearInterval(id);
+  }, [isRunning]);
+
+  // Show the countdown in the browser tab title while running (restored afterwards)
+  useEffect(() => {
+    if (!isRunning) return;
+    originalTitleRef.current = document.title;
+    return () => {
+      document.title = originalTitleRef.current;
+    };
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (isRunning) document.title = `${formatTime(remaining)} · ${TIMER_LABELS[mode]}`;
+  }, [isRunning, remaining, mode]);
+
+  const toggleRunning = () => {
+    if (isRunning) {
+      endsAtRef.current = null;
+      setIsRunning(false);
+      return;
+    }
+    if (remaining <= 0) return;
+    // The audio context is created on this click, because browsers only allow sound after a user action
+    if (!audioRef.current) {
+      try {
+        audioRef.current = new AudioContext();
+      } catch {
+        // No audio support: the timer still works silently
+      }
+    }
+    void audioRef.current?.resume();
+    endsAtRef.current = Date.now() + remaining * 1000;
+    setIsRunning(true);
   };
 
-  const progressPercent = ((durations[mode] - timeLeft) / durations[mode]) * 100;
+  const reset = () => {
+    endsAtRef.current = null;
+    setIsRunning(false);
+    setRemaining(TIMER_DURATIONS[mode]);
+  };
+
+  // Jump to the next phase without counting the session
+  const skip = () => goTo(mode === 'work' ? 'shortBreak' : 'work');
+
+  return {
+    mode,
+    remaining,
+    isRunning,
+    sessionsToday,
+    soundOn,
+    progress: 1 - remaining / TIMER_DURATIONS[mode],
+    toggleRunning,
+    reset,
+    skip,
+    switchMode: goTo,
+    toggleSound: () => setSoundOn((prev) => !prev),
+  };
+}
+
+type FocusTimer = ReturnType<typeof useFocusTimer>;
+
+function ProductivityTimer({ app, timer }: { app: AppController; timer: FocusTimer }) {
+  const { mode, remaining, isRunning, sessionsToday, soundOn, progress } = timer;
+
+  const size = 176;
+  const stroke = 10;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  // Four dots show how far you are in the current round (a long break comes after every 4th session)
+  const filledDots = sessionsToday > 0 && sessionsToday % 4 === 0 && mode === 'longBreak' ? 4 : sessionsToday % 4;
+
+  const modes: { key: TimerMode; label: string }[] = [
+    { key: 'work', label: 'Pomodoro' },
+    { key: 'shortBreak', label: 'Short Break' },
+    { key: 'longBreak', label: 'Long Break' },
+  ];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-white/20 pb-3">
+      <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-3">
         <h3 className="font-semibold">Productivity Timer</h3>
-        <span className="shrink-0 rounded bg-[#212529] px-2 py-0.5 text-xs font-medium text-white capitalize">
-          {mode === 'work' ? 'Work Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'}
-        </span>
-      </div>
-
-      {/* Mode Selector Tabs */}
-      <div className="grid grid-cols-3 gap-1 rounded bg-[#914000] p-1 text-xs font-medium">
         <button
           type="button"
-          onClick={() => switchMode('work')}
-          className={`py-1.5 rounded transition-colors cursor-pointer ${mode === 'work' ? 'bg-[#212529] text-white shadow-inner' : 'hover:bg-[#7D3600]'}`}
+          onClick={timer.toggleSound}
+          aria-pressed={soundOn}
+          aria-label={soundOn ? 'Turn completion sound off' : 'Turn completion sound on'}
+          title={soundOn ? 'Sound on' : 'Sound off'}
+          className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#7D3600] transition-colors cursor-pointer"
         >
-          Pomodoro
-        </button>
-        <button
-          type="button"
-          onClick={() => switchMode('shortBreak')}
-          className={`py-1.5 rounded transition-colors cursor-pointer ${mode === 'shortBreak' ? 'bg-[#212529] text-white shadow-inner' : 'hover:bg-[#7D3600]'}`}
-        >
-          Short Break
-        </button>
-        <button
-          type="button"
-          onClick={() => switchMode('longBreak')}
-          className={`py-1.5 rounded transition-colors cursor-pointer ${mode === 'longBreak' ? 'bg-[#212529] text-white shadow-inner' : 'hover:bg-[#7D3600]'}`}
-        >
-          Long Break
+          {soundOn ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}
         </button>
       </div>
 
-      {/* Timer Display Circle / Box */}
-      <div className="relative rounded-lg bg-[#914000] p-6 text-center space-y-4 shadow-inner">
-        <div className="text-4xl font-mono font-bold tracking-wider text-white">
-          {formatTime(timeLeft)}
-        </div>
+      {/* Mode selector (locked while running so a stray click can't wipe your progress) */}
+      <div
+        role="radiogroup"
+        aria-label="Timer mode"
+        className="grid grid-cols-3 gap-1 rounded bg-[#914000] p-1 text-xs font-medium"
+      >
+        {modes.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={mode === key}
+            disabled={isRunning && mode !== key}
+            onClick={() => timer.switchMode(key)}
+            title={isRunning && mode !== key ? 'Pause the timer to switch modes' : undefined}
+            className={`py-1.5 rounded transition-colors ${
+              mode === key
+                ? 'bg-[#212529] text-white shadow-inner'
+                : 'hover:bg-[#7D3600] disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed cursor-pointer'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-        {/* Progress Bar */}
-        <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
-          <div
-            className="h-full bg-white transition-[width] duration-500"
-            style={{ width: `${progressPercent}%` }}
-          />
+      {/* Countdown ring */}
+      <div className="rounded-lg bg-[#914000] p-5 flex flex-col items-center gap-4 shadow-inner">
+        <div className="relative" style={{ width: size, height: size }}>
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="rgba(255,255,255,0.2)"
+              strokeWidth={stroke}
+            />
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="#FFFFFF"
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference * (1 - progress)}
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+              className="transition-[stroke-dashoffset] duration-300 motion-reduce:transition-none"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span role="timer" aria-live="off" className="text-4xl font-mono font-bold tabular-nums tracking-wider">
+              {formatTime(remaining)}
+            </span>
+            <span className="text-xs font-semibold mt-1">{TIMER_LABELS[mode]}</span>
+          </div>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-center gap-3 pt-2">
+        <div className="flex items-center justify-center gap-2 w-full">
           <button
             type="button"
-            onClick={() => setIsRunning(!isRunning)}
-            className="h-10 px-6 rounded bg-[#212529] hover:bg-[#495057] text-sm font-semibold text-white transition-colors cursor-pointer shadow"
+            onClick={timer.toggleRunning}
+            className="flex-1 h-11 inline-flex items-center justify-center gap-2 rounded bg-[#212529] hover:bg-[#495057] text-sm font-semibold text-white transition-colors cursor-pointer"
           >
+            {isRunning ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
             {isRunning ? 'Pause' : 'Start'}
           </button>
           <button
             type="button"
-            onClick={() => {
-              setIsRunning(false);
-              setTimeLeft(durations[mode]);
-            }}
-            className="h-10 px-4 rounded bg-white/15 hover:bg-white/25 text-sm font-medium text-white transition-colors cursor-pointer"
+            onClick={timer.reset}
+            aria-label="Reset timer"
+            title="Reset"
+            className="w-11 h-11 flex items-center justify-center rounded bg-white/15 hover:bg-white/25 transition-colors cursor-pointer"
           >
-            Reset
+            <RotateCcw size={16} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={timer.skip}
+            aria-label={mode === 'work' ? 'Skip to break' : 'Skip to focus'}
+            title={mode === 'work' ? 'Skip to break' : 'Skip to focus'}
+            className="w-11 h-11 flex items-center justify-center rounded bg-white/15 hover:bg-white/25 transition-colors cursor-pointer"
+          >
+            <SkipForward size={16} aria-hidden="true" />
           </button>
         </div>
       </div>
 
-      <p className="text-xs text-[#FFE8D1] text-center">
-        Stay focused on your selected task or log your work intervals.
-      </p>
+      {/* Today's progress + what you're working on */}
+      <div className="rounded-md bg-[#914000] p-3 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold">
+            Today: {sessionsToday} {sessionsToday === 1 ? 'session' : 'sessions'}
+            <span className="font-normal text-[#FFE8D1]"> · {sessionsToday * 25} min focused</span>
+          </p>
+          <div className="flex items-center gap-1" role="img" aria-label={`${filledDots} of 4 sessions done in this round`}>
+            {[0, 1, 2, 3].map((i) => (
+              <span
+                key={i}
+                className={`w-2.5 h-2.5 rounded-full ${i < filledDots ? 'bg-white' : 'bg-white/30'}`}
+              />
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-[#FFE8D1] leading-5 truncate">
+          {mode !== 'work'
+            ? 'Take a breather. Step away from the screen for a bit.'
+            : app.activeTask
+              ? `Focusing on ${app.getTaskKey(app.activeTask)} · ${app.activeTask.title}`
+              : 'Tip: select a task in your workspace to keep it in view while you focus.'}
+        </p>
+      </div>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Sidebar
+// ---------------------------------------------------------------------------
 
 export default function RightSidebar({ app }: RightSidebarProps) {
   const { isSidebarCollapsed: isCollapsed, setIsSidebarCollapsed: setIsCollapsed } = app;
   const [activeTab, setActiveTab] = useState(0);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingClearNotes, setConfirmingClearNotes] = useState(false);
   const [notes, setNotes] = useState<string>(() => {
     try {
       return localStorage.getItem(NOTES_KEY) ?? '';
@@ -182,14 +445,26 @@ export default function RightSidebar({ app }: RightSidebarProps) {
   });
   const titleOnFocus = useRef('');
   const descOnFocus = useRef('');
+  const timer = useFocusTimer(app);
 
   const activeTaskId = app.activeTask?.id;
+  const activeFilterCount = [
+    app.quickFilterPinned,
+    app.quickFilterUrgent,
+    app.quickFilterHasDesc,
+    app.quickFilterHideDone,
+  ].filter(Boolean).length;
 
   // When a different task is selected: reset the delete confirmation and jump to the Inspector tab
   useEffect(() => {
     setConfirmingDelete(false);
     if (activeTaskId !== undefined && activeTaskId !== null) setActiveTab(0);
   }, [activeTaskId]);
+
+  // Leaving the Notes tab cancels a half-finished "clear notes"
+  useEffect(() => {
+    setConfirmingClearNotes(false);
+  }, [activeTab]);
 
   // Keep the scratchpad between tab switches and page reloads
   useEffect(() => {
@@ -215,8 +490,57 @@ export default function RightSidebar({ app }: RightSidebarProps) {
     document.getElementById(`rs-tab-${next}`)?.focus();
   };
 
+  // Small status markers on the tab icons, so important state is visible even from another tab
+  const getBadge = (tabId: number) => {
+    if (tabId === 0 && app.activeTask) return { kind: 'dot' as const, label: 'a task is selected' };
+    if (tabId === 1 && timer.isRunning) return { kind: 'dot' as const, label: 'the timer is running' };
+    if (tabId === 4 && activeFilterCount > 0) {
+      return {
+        kind: 'count' as const,
+        value: activeFilterCount,
+        label: `${activeFilterCount} ${activeFilterCount === 1 ? 'filter is' : 'filters are'} active`,
+      };
+    }
+    return null;
+  };
+
+  const renderBadge = (tabId: number, position: string) => {
+    const badge = getBadge(tabId);
+    if (!badge) return null;
+    return (
+      <>
+        {badge.kind === 'dot' ? (
+          <span
+            className={`absolute ${position} w-2 h-2 rounded-full bg-white ring-2 ring-[#BF5700] ${
+              tabId === 1 ? 'animate-pulse motion-reduce:animate-none' : ''
+            }`}
+            aria-hidden="true"
+          />
+        ) : (
+          <span
+            className={`absolute ${position} min-w-4 h-4 px-1 rounded-full bg-white text-[10px] font-bold leading-4 text-center text-[#914000] ring-2 ring-[#BF5700]`}
+            aria-hidden="true"
+          >
+            {badge.value}
+          </span>
+        )}
+        <span className="sr-only">({badge.label})</span>
+      </>
+    );
+  };
+
+  const copyText = async (text: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      app.showToast(successMessage);
+    } catch {
+      app.showToast('Copy failed. Select the text and copy it manually.');
+    }
+  };
+
   const renderInspector = () => {
     const task = app.activeTask;
+    const taskKey = task ? app.getTaskKey(task) : '';
     const group = task && task.groupId != null
       ? app.groups.find((g) => String(g.id) === String(task.groupId))
       : undefined;
@@ -225,9 +549,22 @@ export default function RightSidebar({ app }: RightSidebarProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-3">
           <h3 className="font-semibold">Task Inspector</h3>
-          <span className="shrink-0 rounded bg-[#212529] px-2 py-0.5 text-xs font-medium text-white">
-            {task ? app.getTaskKey(task) : 'No selection'}
-          </span>
+          {task ? (
+            <button
+              type="button"
+              onClick={() => copyText(taskKey, `Copied ${taskKey}`)}
+              title="Copy task key"
+              aria-label={`Copy task key ${taskKey}`}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded bg-[#212529] hover:bg-[#495057] px-2 py-0.5 text-xs font-medium text-white transition-colors cursor-pointer"
+            >
+              {taskKey}
+              <Copy size={12} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="shrink-0 rounded bg-[#212529] px-2 py-0.5 text-xs font-medium text-white">
+              No selection
+            </span>
+          )}
         </div>
 
         {task ? (
@@ -264,6 +601,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                   app.setTasks(app.tasks.map((t) => t.id === updated.id ? updated : t));
                 }}
                 onBlur={() => {
+                  // A task can't have an empty title: put the previous one back instead of saving a blank
                   if (!task.title.trim()) {
                     app.setTasks(app.tasks.map((t) => t.id === task.id ? { ...t, title: titleOnFocus.current } : t));
                     return;
@@ -320,7 +658,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                   aria-pressed={!!task.pinned}
                   title="Pinned tasks are shown above all others"
                   className={`flex-1 h-10 inline-flex items-center justify-center gap-2 rounded text-sm font-medium transition-colors cursor-pointer ${
-                    task.pinned ? 'bg-white text-[#212529]' : 'bg-[#A34A00] text-white hover:bg-[#8F4000]'
+                    task.pinned ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
                   }`}
                 >
                   <Pin size={16} aria-hidden="true" />
@@ -332,7 +670,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                   aria-pressed={!!task.urgent}
                   title="Urgent tasks are shown below pinned tasks"
                   className={`flex-1 h-10 inline-flex items-center justify-center gap-2 rounded text-sm font-medium transition-colors cursor-pointer ${
-                    task.urgent ? 'bg-white text-[#212529]' : 'bg-[#A34A00] text-white hover:bg-[#8F4000]'
+                    task.urgent ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
                   }`}
                 >
                   <Flag size={16} aria-hidden="true" />
@@ -343,14 +681,14 @@ export default function RightSidebar({ app }: RightSidebarProps) {
 
             {/* Actions */}
             {confirmingDelete ? (
-              <div role="alertdialog" aria-label="Confirm delete" className="rounded-md bg-[#A34A00] p-3 space-y-3">
-                <p className="text-sm">Delete {app.getTaskKey(task)}? This can't be undone.</p>
+              <div role="alertdialog" aria-label="Confirm delete" className="rounded-md bg-[#914000] p-3 space-y-3">
+                <p className="text-sm">Delete {taskKey}? This can't be undone.</p>
                 <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setConfirmingDelete(false)}
                     autoFocus
-                    className="h-9 px-3 rounded text-sm font-medium text-white hover:bg-[#8F4000] transition-colors cursor-pointer"
+                    className="h-9 px-3 rounded text-sm font-medium text-white hover:bg-[#7D3600] transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -371,7 +709,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                 <button
                   type="button"
                   onClick={() => setConfirmingDelete(true)}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded text-sm font-medium text-white hover:bg-[#8F4000] transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded text-sm font-medium text-white hover:bg-[#7D3600] transition-colors cursor-pointer"
                 >
                   <Trash2 size={16} aria-hidden="true" />
                   Delete task
@@ -387,18 +725,194 @@ export default function RightSidebar({ app }: RightSidebarProps) {
             )}
           </div>
         ) : (
-          <div className="rounded-md bg-[#A34A00] px-4 py-10 text-center space-y-3">
-            <div className="mx-auto w-12 h-12 rounded-full bg-white/15 flex items-center justify-center">
-              <FileText size={22} aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold">No task selected</p>
-              <p className="text-xs leading-5 text-[#FFE8D1] mt-1">
-                Click any task in your workspace to view and edit its details here.
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            icon={FileText}
+            title="No task selected"
+            description="Click any task in your workspace to view and edit its details here."
+          />
         )}
+      </div>
+    );
+  };
+
+  const renderNotes = () => {
+    const trimmed = notes.trim();
+    const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-3">
+          <h3 className="font-semibold">Scratchpad</h3>
+          <span className="text-xs">Saved on this device</span>
+        </div>
+
+        <textarea
+          aria-label="Scratchpad notes"
+          value={notes}
+          maxLength={NOTES_MAX_LENGTH}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Jot down notes..."
+          className={`${fieldClass} h-56 py-2 resize-none`}
+        />
+
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs">
+            {wordCount} {wordCount === 1 ? 'word' : 'words'} · {notes.length}/{NOTES_MAX_LENGTH}
+          </p>
+
+          {confirmingClearNotes ? (
+            <div className="flex items-center gap-1.5" role="alertdialog" aria-label="Confirm clearing notes">
+              <span className="text-xs">Clear all notes?</span>
+              <button
+                type="button"
+                onClick={() => setConfirmingClearNotes(false)}
+                autoFocus
+                className="h-8 px-2 rounded text-xs font-medium hover:bg-[#7D3600] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNotes('');
+                  setConfirmingClearNotes(false);
+                }}
+                className="h-8 px-2 rounded bg-white text-xs font-semibold text-[#AE2E24] hover:bg-[#FFECEB] transition-colors cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => copyText(notes, 'Notes copied')}
+                disabled={!notes}
+                className="inline-flex items-center gap-1.5 h-8 px-2 rounded text-xs font-medium hover:bg-[#7D3600] transition-colors cursor-pointer disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              >
+                <Copy size={14} aria-hidden="true" />
+                Copy
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingClearNotes(true)}
+                disabled={!notes}
+                className="inline-flex items-center gap-1.5 h-8 px-2 rounded text-xs font-medium hover:bg-[#7D3600] transition-colors cursor-pointer disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              >
+                <Trash2 size={14} aria-hidden="true" />
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderActivity = () => {
+    const activities: any[] = app.activities || [];
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-3">
+          <h3 className="font-semibold">Activity Stream</h3>
+          <span className="text-xs">
+            {activities.length > 0 ? `${activities.length} recent ${activities.length === 1 ? 'action' : 'actions'}` : 'Recent actions'}
+          </span>
+        </div>
+
+        {activities.length > 0 ? (
+          <ol className="ml-1.5 border-l border-white/30 space-y-3">
+            {activities.map((act) => (
+              <li key={act.id} className="relative pl-4">
+                <span
+                  className="absolute -left-1.25 top-3 w-2.5 h-2.5 rounded-full bg-white ring-2 ring-[#BF5700]"
+                  aria-hidden="true"
+                />
+                <div className="rounded bg-[#914000] p-2.5 text-xs space-y-1 shadow-sm">
+                  <p className="font-medium wrap-break-words">{act.text}</p>
+                  <p className="text-[11px] text-[#FFE8D1]">{act.time}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <EmptyState
+            icon={Activity}
+            title="No activity yet"
+            description="Your recent actions, like creating, completing or deleting tasks, will show up here."
+          />
+        )}
+      </div>
+    );
+  };
+
+  const renderFilters = () => {
+    const quickFilters = [
+      { key: 'pinned', label: 'Pinned tasks only', icon: Pin, active: !!app.quickFilterPinned, toggle: () => app.setQuickFilterPinned(!app.quickFilterPinned) },
+      { key: 'urgent', label: 'Urgent tasks only', icon: Flag, active: !!app.quickFilterUrgent, toggle: () => app.setQuickFilterUrgent(!app.quickFilterUrgent) },
+      { key: 'desc', label: 'Has description notes', icon: FileText, active: !!app.quickFilterHasDesc, toggle: () => app.setQuickFilterHasDesc(!app.quickFilterHasDesc) },
+      { key: 'done', label: 'Hide completed tasks', icon: CheckCircle2, active: !!app.quickFilterHideDone, toggle: () => app.setQuickFilterHideDone(!app.quickFilterHideDone) },
+    ];
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-3">
+          <h3 className="font-semibold">Quick Filters</h3>
+          {activeFilterCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                app.setQuickFilterPinned(false);
+                app.setQuickFilterUrgent(false);
+                app.setQuickFilterHasDesc(false);
+                app.setQuickFilterHideDone(false);
+                app.showToast('Filters cleared');
+              }}
+              className="h-7 px-2 rounded text-xs font-medium hover:bg-[#7D3600] transition-colors cursor-pointer"
+            >
+              Reset all ({activeFilterCount})
+            </button>
+          ) : (
+            <span className="text-xs">None active</span>
+          )}
+        </div>
+
+        <div className="space-y-2" role="group" aria-label="Attribute filters">
+          {quickFilters.map(({ key, label, icon: Icon, active, toggle }) => (
+            <button
+              key={key}
+              type="button"
+              role="switch"
+              aria-checked={active}
+              onClick={toggle}
+              className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded text-xs font-medium transition-colors cursor-pointer bg-[#914000] hover:bg-[#7D3600] ${
+                active ? 'ring-2 ring-white' : ''
+              }`}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Icon size={14} aria-hidden="true" className="shrink-0" />
+                <span className="truncate">{label}</span>
+              </span>
+              <span
+                className={`shrink-0 w-9 h-5 rounded-full p-0.5 transition-colors motion-reduce:transition-none ${
+                  active ? 'bg-white' : 'bg-white/30'
+                }`}
+                aria-hidden="true"
+              >
+                <span
+                  className={`block w-4 h-4 rounded-full transition-transform motion-reduce:transition-none ${
+                    active ? 'translate-x-4 bg-[#BF5700]' : 'translate-x-0 bg-white'
+                  }`}
+                />
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <p className="text-xs leading-5 text-[#FFE8D1]">
+          Filters combine with your search query and group selection. A number on the Filters tab shows how many are on.
+        </p>
       </div>
     );
   };
@@ -431,18 +945,13 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                 key={tab.id}
                 onClick={() => { setActiveTab(idx); setIsCollapsed(false); }}
                 aria-label={tab.label}
-                title={tab.label}
+                title={tab.id === 1 && timer.isRunning ? `Timer · ${formatTime(timer.remaining)} left` : tab.label}
                 className={`relative w-10 h-10 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
                   isActive ? 'bg-[#212529]' : 'hover:bg-[#A34A00]'
                 }`}
               >
                 <Icon size={20} />
-                {tab.id === 0 && app.activeTask && (
-                  <>
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-white ring-2 ring-[#BF5700]" aria-hidden="true" />
-                    <span className="sr-only">(a task is selected)</span>
-                  </>
-                )}
+                {renderBadge(tab.id, 'top-1 right-1')}
               </button>
             );
           })}
@@ -463,7 +972,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
             </button>
           </div>
 
-          {/* Tabs: icon + label so every tool is easy to recognize */}
+          {/* Tabs: icon + label so every tool is easy to recognize. The Timer label shows the countdown while it runs. */}
           <div
             role="tablist"
             aria-label="Workspace tools"
@@ -487,13 +996,10 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                   }`}
                 >
                   <Icon size={18} aria-hidden="true" />
-                  <span className="text-[11px] leading-none font-medium">{tab.label}</span>
-                  {tab.id === 0 && app.activeTask && (
-                    <>
-                      <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-white ring-2 ring-[#BF5700]" aria-hidden="true" />
-                      <span className="sr-only">(a task is selected)</span>
-                    </>
-                  )}
+                  <span className="text-[11px] leading-none font-medium tabular-nums">
+                    {tab.id === 1 && timer.isRunning ? formatTime(timer.remaining) : tab.label}
+                  </span>
+                  {renderBadge(tab.id, 'top-1 right-2')}
                 </button>
               );
             })}
@@ -504,138 +1010,13 @@ export default function RightSidebar({ app }: RightSidebarProps) {
             id="rs-panel"
             role="tabpanel"
             aria-labelledby={`rs-tab-${activeTab}`}
-            className="flex-1 min-h-0 overflow-y-auto p-4"
+            className="scrollbar-on-orange flex-1 min-h-0 overflow-y-auto p-4"
           >
             {activeTab === 0 && renderInspector()}
-
-            {activeTab === 1 && (() => {
-              return <ProductivityTimer app={app} />;
-            })()}
-
-            {activeTab === 2 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-semibold">Scratchpad</h3>
-                  <span className="text-xs">Saved on this device</span>
-                </div>
-                <textarea
-                  aria-label="Scratchpad notes"
-                  value={notes}
-                  maxLength={NOTES_MAX_LENGTH}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Jot down notes..."
-                  className={`${fieldClass} h-56 py-2 resize-none`}
-                />
-                <p className="text-xs text-right">{notes.length}/{NOTES_MAX_LENGTH}</p>
-              </div>
-            )}
-
-            {activeTab === 3 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between border-b border-white/20 pb-2">
-                  <h3 className="font-semibold">Activity Stream</h3>
-                  <span className="text-xs text-[#FFE8D1]">Recent actions</span>
-                </div>
-
-                <div className="space-y-2 max-h-100 overflow-y-auto pr-1">
-                  {app.activities && app.activities.length > 0 ? (
-                    app.activities.map((act: any) => (
-                      <div key={act.id} className="rounded bg-[#914000] p-2.5 text-xs space-y-1 shadow-sm">
-                        <p className="text-white font-medium">{act.text}</p>
-                        <p className="text-[10px] text-[#FFE8D1]/70">{act.time}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-xs text-[#FFE8D1]/70">
-                      No activity recorded yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 4 && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/20 pb-3">
-                  <h3 className="font-semibold">Quick Filters</h3>
-                  {(app.quickFilterPinned || app.quickFilterUrgent || app.quickFilterHasDesc || app.quickFilterHideDone) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        app.setQuickFilterPinned(false);
-                        app.setQuickFilterUrgent(false);
-                        app.setQuickFilterHasDesc(false);
-                        app.setQuickFilterHideDone(false);
-                        app.showToast('Filters cleared');
-                      }}
-                      className="text-xs text-[#FFE8D1] hover:underline cursor-pointer"
-                    >
-                      Reset all
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-[#FFE8D1]">Attribute Filters</p>
-                  
-                  <button
-                    type="button"
-                    onClick={() => app.setQuickFilterPinned(!app.quickFilterPinned)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded text-xs font-medium transition-colors cursor-pointer ${
-                      app.quickFilterPinned ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Pin size={14} aria-hidden="true" /> Pinned tasks only
-                    </span>
-                    <span className={`w-2 h-2 rounded-full ${app.quickFilterPinned ? 'bg-[#BF5700]' : 'bg-white/30'}`} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => app.setQuickFilterUrgent(!app.quickFilterUrgent)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded text-xs font-medium transition-colors cursor-pointer ${
-                      app.quickFilterUrgent ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Flag size={14} aria-hidden="true" /> Urgent tasks only
-                    </span>
-                    <span className={`w-2 h-2 rounded-full ${app.quickFilterUrgent ? 'bg-[#BF5700]' : 'bg-white/30'}`} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => app.setQuickFilterHasDesc(!app.quickFilterHasDesc)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded text-xs font-medium transition-colors cursor-pointer ${
-                      app.quickFilterHasDesc ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <FileText size={14} aria-hidden="true" /> Has description notes
-                    </span>
-                    <span className={`w-2 h-2 rounded-full ${app.quickFilterHasDesc ? 'bg-[#BF5700]' : 'bg-white/30'}`} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => app.setQuickFilterHideDone(!app.quickFilterHideDone)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded text-xs font-medium transition-colors cursor-pointer ${
-                      app.quickFilterHideDone ? 'bg-white text-[#212529]' : 'bg-[#914000] text-white hover:bg-[#7D3600]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <CheckCircle2 size={14} aria-hidden="true" /> Hide completed tasks
-                    </span>
-                    <span className={`w-2 h-2 rounded-full ${app.quickFilterHideDone ? 'bg-[#BF5700]' : 'bg-white/30'}`} />
-                  </button>
-                </div>
-
-                <p className="text-xs text-[#FFE8D1] pt-2">
-                  Filters combine dynamically with your search query and group selections.
-                </p>
-              </div>
-            )}
+            {activeTab === 1 && <ProductivityTimer app={app} timer={timer} />}
+            {activeTab === 2 && renderNotes()}
+            {activeTab === 3 && renderActivity()}
+            {activeTab === 4 && renderFilters()}
           </div>
         </>
       )}
