@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @Entity // Tells Spring Boot that this class represents a table in the database
 @Table(name = "tasks") // Tells Spring Boot exactly which database table this class should map to
@@ -27,10 +28,12 @@ public class Task {
   private Long id;
 
   @NotBlank(message = "Task title cannot be blank") // Annotated element must not be blank
+  @Size(max = 100, message = "Task title cannot exceed 100 characters")
   @Convert(converter = EncryptedStringConverter.class)
-  @Column(nullable = false)
+  @Column(nullable = false, columnDefinition = "TEXT")
   private String title;
 
+  @Size(max = 1000, message = "Task description cannot exceed 1000 characters")
   @Convert(converter = EncryptedStringConverter.class)
   @Column(columnDefinition = "TEXT")
   private String description;
@@ -47,6 +50,7 @@ public class Task {
   private boolean urgent;
 
   @Convert(converter = EncryptedStringConverter.class)
+  @Column(columnDefinition = "TEXT")
   private String groupName;
 
   // 3. Default constructor (Required by JPA)

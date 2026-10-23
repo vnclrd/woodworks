@@ -16,7 +16,7 @@ public class DailyTask {
     private Long userId;
 
     @Convert(converter = EncryptedStringConverter.class)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String title;
 
     @Column(name = "last_completed")

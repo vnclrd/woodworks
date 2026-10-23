@@ -3,6 +3,7 @@ package com.woodworks.model;
 import com.woodworks.util.EncryptedStringConverter;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
 
 @Entity
 @Table(name = "task_groups")
@@ -11,9 +12,10 @@ public class TaskGroup {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
+    
+    @Size(max = 50, message = "Group name cannot exceed 50 characters")
     @Convert(converter = EncryptedStringConverter.class)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String name;
 
     private String color;
