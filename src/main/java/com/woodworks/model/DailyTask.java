@@ -1,5 +1,7 @@
 package com.woodworks.model;
 
+import com.woodworks.util.EncryptedStringConverter;
+
 import jakarta.persistence.*;
 
 @Entity
@@ -13,6 +15,7 @@ public class DailyTask {
     @Column(nullable = false)
     private Long userId;
 
+    @Convert(converter = EncryptedStringConverter.class)
     @Column(nullable = false)
     private String title;
 

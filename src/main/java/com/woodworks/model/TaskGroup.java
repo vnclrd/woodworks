@@ -1,5 +1,7 @@
 package com.woodworks.model;
 
+import com.woodworks.util.EncryptedStringConverter;
+
 import jakarta.persistence.*;
 
 @Entity
@@ -10,8 +12,11 @@ public class TaskGroup {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false)
     private String name;
-    private String color; // Optional: if your frontend tracks group badge colors
+
+    private String color;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

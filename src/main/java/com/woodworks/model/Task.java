@@ -2,6 +2,10 @@ package com.woodworks.model;
 
 import java.time.LocalDateTime;
 
+import com.woodworks.util.EncryptedStringConverter;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -23,8 +27,14 @@ public class Task {
   private Long id;
 
   @NotBlank(message = "Task title cannot be blank") // Annotated element must not be blank
+  @Convert(converter = EncryptedStringConverter.class)
+  @Column(nullable = false)
   private String title;
+
+  @Convert(converter = EncryptedStringConverter.class)
+  @Column(columnDefinition = "TEXT")
   private String description;
+  
   private boolean completed;
 
   @ManyToOne(fetch = FetchType.LAZY)
@@ -36,6 +46,7 @@ public class Task {
   private boolean pinned;
   private boolean urgent;
 
+  @Convert(converter = EncryptedStringConverter.class)
   private String groupName;
 
   // 3. Default constructor (Required by JPA)
