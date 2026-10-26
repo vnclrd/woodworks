@@ -178,9 +178,14 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Password reset token has expired. Please request a new one."));
         }
 
+        // Check if the new password is the same as the old password
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "New password cannot be the same as your current password."));
+        }
+
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setResetPasswordToken(null);
-        user.setResetPasswordExpiresAt(null); // Clear expiration fields after successful use
+        user.setResetPasswordExpiresAt(null);
         userRepository.save(user);
 
         return ResponseEntity.ok(Map.of("message", "Password successfully reset. You can now sign in with your new password."));
