@@ -8,7 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
@@ -123,19 +122,36 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
         String email = request.get("email");
-        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+        }
 
-        // For security reasons, don't reveal if email exists or not
+        Optional<User> userOpt = userRepository.findByEmail(email.trim());
         if (userOpt.isPresent()) {
             User user = userOpt.get();
             String resetToken = UUID.randomUUID().toString();
-            user.setResetToken(resetToken);
-            user.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30)); // 30 min expiry
+            
+            user.setResetPasswordToken(resetToken);
+            // Set token to expire in 15 minutes
+            user.setResetPasswordExpiresAt(java.time.LocalDateTime.now().plusMinutes(15));
             userRepository.save(user);
 
-            String resetUrl = "http://localhost:5173/reset-password?token=" + resetToken;
-            emailService.sendEmail(email, "Reset your WoodWorks Password", 
-                "Click the link below to reset your password. This link expires in 30 minutes:\n" + resetUrl);
+            String frontendUrl = System.getenv("FRONTEND_URL");
+            if (frontendUrl == null || frontendUrl.isEmpty()) {
+                frontendUrl = "https://woodworks-ptms.vercel.app";
+            }
+            frontendUrl = frontendUrl.replaceAll("/+$", "");
+            String resetUrl = frontendUrl + "/reset-password?token=" + resetToken;
+
+            String body = "Hello,\n\n"
+                    + "You requested a password reset for your WoodWorks account. Click the link below to set a new password:\n\n"
+                    + resetUrl + "\n\n"
+                    + "This link will expire in 15 minutes.\n\n"
+                    + "If you didn't request this, you can safely ignore this email.\n\n"
+                    + "Best regards,\n"
+                    + "The WoodWorks Team";
+
+            emailService.sendEmail(user.getEmail(), "Reset your WoodWorks Password", body);
         }
 
         return ResponseEntity.ok(Map.of("message", "If an account with that email exists, a password reset link has been sent."));
@@ -146,24 +162,27 @@ public class AuthController {
         String token = request.get("token");
         String newPassword = request.get("newPassword");
 
-        if (newPassword == null || newPassword.length() < 8) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 8 characters long"));
+        if (token == null || newPassword == null || newPassword.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid request."));
         }
 
-        Optional<User> userOpt = userRepository.findAll().stream()
-                .filter(u -> token.equals(u.getResetToken()) && u.getResetTokenExpiry() != null && u.getResetTokenExpiry().isAfter(LocalDateTime.now()))
-                .findFirst();
-
+        Optional<User> userOpt = userRepository.findByResetPasswordToken(token);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired password reset token"));
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired password reset token."));
         }
 
         User user = userOpt.get();
+
+        // Check if the token has expired
+        if (user.getResetPasswordExpiresAt() == null || user.getResetPasswordExpiresAt().isBefore(java.time.LocalDateTime.now())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Password reset token has expired. Please request a new one."));
+        }
+
         user.setPassword(passwordEncoder.encode(newPassword));
-        user.setResetToken(null);
-        user.setResetTokenExpiry(null);
+        user.setResetPasswordToken(null);
+        user.setResetPasswordExpiresAt(null); // Clear expiration fields after successful use
         userRepository.save(user);
 
-        return ResponseEntity.ok(Map.of("message", "Password has been successfully reset. You can now log in."));
+        return ResponseEntity.ok(Map.of("message", "Password successfully reset. You can now sign in with your new password."));
     }
 }

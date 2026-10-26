@@ -1,5 +1,6 @@
 import AuthScreen from './components/auth/AuthScreen';
 import VerifyEmailScreen from './components/auth/VerifyEmailScreen';
+import ResetPasswordScreen from './components/auth/ResetPasswordScreen';
 import AppHeader from './components/layout/AppHeader';
 import RightSidebar from './components/layout/RightSidebar';
 import Sidebar from './components/layout/Sidebar';
@@ -15,8 +16,15 @@ import { useAppController } from './hooks/useAppController';
 export default function App() {
   const app = useAppController();
 
+  const params = new URLSearchParams(window.location.search);
+  const resetToken = params.get('token');
+
   if (window.location.pathname === '/verify-email') {
     return <VerifyEmailScreen />;
+  }
+
+  if (window.location.pathname === '/reset-password' && resetToken) {
+    return <ResetPasswordScreen token={resetToken} onSuccess={() => window.location.href = '/'} />;
   }
 
   return (
