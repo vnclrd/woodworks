@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ListTodo, Search, CheckSquare, AlertTriangle, EyeOff, Eye, RefreshCw, ArrowLeft } from 'lucide-react';
+import { ListTodo, Search, CheckSquare, AlertTriangle, EyeOff, Eye, RefreshCw, ArrowLeft, MailCheck } from 'lucide-react';
+import { BASE_URL } from '../../config/appConfig';
 import type { AppController } from '../../hooks/useAppController';
 
 type Props = { app: AppController };
 
 export default function AuthScreen({ app }: Props) {
-  const { authView, authError, handleAuthSubmit, emailInput, setEmailInput, authInputClass, showPassword, setShowPassword, passwordInput, setPasswordInput, confirmPasswordInput, setConfirmPasswordInput, rememberMe, setRememberMe, isAuthLoading, switchAuthView } = app;
+  const { authView, authError, setAuthError, handleAuthSubmit, emailInput, setEmailInput, authInputClass, showPassword, setShowPassword, passwordInput, setPasswordInput, confirmPasswordInput, setConfirmPasswordInput, rememberMe, setRememberMe, isAuthLoading, setIsAuthLoading, switchAuthView, showToast } = app;
   
   // Local sub-view state for forgot password screen
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -13,12 +14,15 @@ export default function AuthScreen({ app }: Props) {
   const [forgotMessage, setForgotMessage] = useState('');
   const [isSendingForgot, setIsSendingForgot] = useState(false);
 
+  // New state to show "Check your email" card after successful registration
+  const [verificationPendingEmail, setVerificationPendingEmail] = useState<string | null>(null);
+
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSendingForgot(true);
     setForgotMessage('');
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await fetch(`${BASE_URL.replace(/\/$/, '')}/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail })
@@ -29,6 +33,41 @@ export default function AuthScreen({ app }: Props) {
       setForgotMessage('Failed to send reset email. Please try again.');
     } finally {
       setIsSendingForgot(false);
+    }
+  };
+
+  // Custom submit handler to intercept registration and trigger verification pending view
+  const handleCustomAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isAuthLoading) return;
+    setAuthError(null);
+
+    if (authView === 'register') {
+      if (passwordInput !== confirmPasswordInput) {
+        setAuthError("Passwords don't match. Please re-enter them.");
+        return;
+      }
+
+      setIsAuthLoading(true);
+      try {
+        const response = await fetch(`${BASE_URL.replace(/\/$/, '')}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailInput.trim(), password: passwordInput })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Registration failed.');
+
+        setVerificationPendingEmail(emailInput.trim());
+        showToast('Account created! Verification email sent.');
+      } catch (err: any) {
+        setAuthError(err.message || "Couldn't reach the server.");
+      } finally {
+        setIsAuthLoading(false);
+      }
+    } else {
+      // Delegate login to existing hook handler
+      handleAuthSubmit(e);
     }
   };
 
@@ -70,7 +109,25 @@ export default function AuthScreen({ app }: Props) {
             <span className="font-semibold text-lg">WoodWorks</span>
           </div>
 
-          {isForgotPassword ? (
+          {verificationPendingEmail ? (
+            <div className="text-center py-4">
+              <div className="flex justify-center mb-4">
+                <div className="w-14 h-14 rounded-full bg-[#E6F4EA] flex items-center justify-center text-[#216E4E]">
+                  <MailCheck className="w-7 h-7" />
+                </div>
+              </div>
+              <h1 className="text-2xl font-semibold text-[#212529]">Check your inbox</h1>
+              <p className="text-sm text-[#5C636A] mt-2 mb-6">
+                We've sent a verification link to <strong className="text-[#212529]">{verificationPendingEmail}</strong>. Please click the link inside to activate your account before signing in.
+              </p>
+              <button
+                onClick={() => { setVerificationPendingEmail(null); switchAuthView('login'); }}
+                className="w-full h-11 flex items-center justify-center bg-[#212529] hover:bg-[#495057] text-white rounded text-sm font-medium transition-colors cursor-pointer"
+              >
+                Back to Sign In
+              </button>
+            </div>
+          ) : isForgotPassword ? (
             <div>
               <button
                 onClick={() => { setIsForgotPassword(false); setForgotMessage(''); }}
@@ -127,7 +184,7 @@ export default function AuthScreen({ app }: Props) {
                 </div>
               )}
 
-              <form onSubmit={handleAuthSubmit} className="mt-6 space-y-4">
+              <form onSubmit={handleCustomAuthSubmit} className="mt-6 space-y-4">
                 <div>
                   <label htmlFor="auth-email" className="block text-xs font-semibold text-[#495057] mb-1">Email</label>
                   <input

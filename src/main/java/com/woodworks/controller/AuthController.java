@@ -40,13 +40,25 @@ public class AuthController {
         User user = new User(email, passwordEncoder.encode(password));
         String verificationToken = UUID.randomUUID().toString();
         user.setVerificationToken(verificationToken);
-        user.setEnabled(false); // Must verify email before login
+        user.setEnabled(false);
         userRepository.save(user);
 
-        // Send verification email (Update URL to match your domain/frontend route)
-        String verifyUrl = "http://localhost:5173/verify-email?token=" + verificationToken;
-        emailService.sendEmail(email, "Verify your WoodWorks Account", 
-            "Please click the link below to verify your email address:\n" + verifyUrl);
+        String frontendUrl = System.getenv("FRONTEND_URL");
+        if (frontendUrl == null || frontendUrl.isEmpty()) {
+            frontendUrl = "https://woodworks-ptms.vercel.app/";
+        }
+        String verifyUrl = frontendUrl + "/verify-email?token=" + verificationToken;
+
+        // Professional business email template
+        String emailBody = "Welcome to WoodWorks!\n\n"
+                + "Thank you for creating an account with our Personal Task Management System. "
+                + "To keep your workspace secure and start organizing your tasks, please verify your email address by clicking the link below:\n\n"
+                + verifyUrl + "\n\n"
+                + "If you did not request this account, please feel free to ignore this email.\n\n"
+                + "Best regards,\n"
+                + "The WoodWorks Team";
+
+        emailService.sendEmail(email, "Verify your WoodWorks Account", emailBody);
 
         return ResponseEntity.ok(Map.of("message", "Registration successful. Please check your email to verify your account."));
     }
