@@ -9,9 +9,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -43,22 +45,42 @@ public class AuthController {
         user.setEnabled(false);
         userRepository.save(user);
 
+        // 1. Send verification email to the new user
         String frontendUrl = System.getenv("FRONTEND_URL");
         if (frontendUrl == null || frontendUrl.isEmpty()) {
-            frontendUrl = "https://woodworks-ptms.vercel.app/";
+            frontendUrl = "https://woodworks-ptms.vercel.app";
         }
+        // Clean trailing slashes to prevent "//verify-email"
+        frontendUrl = frontendUrl.replaceAll("/+$", "");
         String verifyUrl = frontendUrl + "/verify-email?token=" + verificationToken;
 
-        // Professional business email template
-        String emailBody = "Welcome to WoodWorks!\n\n"
-                + "Thank you for creating an account with our Personal Task Management System. "
-                + "To keep your workspace secure and start organizing your tasks, please verify your email address by clicking the link below:\n\n"
+        String userEmailBody = "Welcome to WoodWorks!\n\n"
+                + "Thank you for creating an account. Please verify your email address by clicking the link below:\n\n"
                 + verifyUrl + "\n\n"
-                + "If you did not request this account, please feel free to ignore this email.\n\n"
                 + "Best regards,\n"
                 + "The WoodWorks Team";
 
-        emailService.sendEmail(email, "Verify your WoodWorks Account", emailBody);
+        emailService.sendEmail(email, "Verify your WoodWorks Account", userEmailBody);
+
+        // 2. Send notification alert to admin email addresses
+        String adminEmail1 = System.getenv("ADMIN_NOTIFICATION_EMAIL_1");
+        String adminEmail2 = System.getenv("ADMIN_NOTIFICATION_EMAIL_2");
+
+        List<String> recipients = new ArrayList<>();
+        if (adminEmail1 != null && !adminEmail1.isBlank()) recipients.add(adminEmail1.trim());
+        if (adminEmail2 != null && !adminEmail2.isBlank()) recipients.add(adminEmail2.trim());
+
+        if (!recipients.isEmpty()) {
+            String adminEmailBody = "New WoodWorks User Registration!\n\n"
+                    + "A new user just signed up:\n"
+                    + "- Email: " + email + "\n"
+                    + "- Timestamp: " + java.time.LocalDateTime.now() + "\n\n"
+                    + "The account is currently pending email verification.";
+
+            for (String recipient : recipients) {
+                emailService.sendEmail(recipient, "🔔 New User Alert: " + email, adminEmailBody);
+            }
+        }
 
         return ResponseEntity.ok(Map.of("message", "Registration successful. Please check your email to verify your account."));
     }
