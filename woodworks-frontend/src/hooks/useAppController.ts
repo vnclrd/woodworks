@@ -20,6 +20,8 @@ import { fetchGroupsApi, createGroupApi, deleteGroupApi } from '../services/wood
 
 const USER_EMAIL_KEY = 'woodworks_user_email';
 
+const avatarKey = (email: string) => `woodworks_avatar:${email.toLowerCase()}`;
+
 // Fallback for people who were already logged in before this key existed.
 // Only works if your token is a JWT that carries the email in "email" or "sub".
 function emailFromToken(token: string | null): string | null {
@@ -40,6 +42,23 @@ export function useAppController() {
   const [userEmail, setUserEmail] = useState<string | null>(
     () => localStorage.getItem(USER_EMAIL_KEY) || sessionStorage.getItem(USER_EMAIL_KEY) || emailFromToken(token)
   );
+
+  const [avatarId, setAvatarId] = useState<string | null>(
+    () => (userEmail ? localStorage.getItem(avatarKey(userEmail)) : null)
+  );
+
+  // When a different account signs in, load that account's avatar
+  useEffect(() => {
+    setAvatarId(userEmail ? localStorage.getItem(avatarKey(userEmail)) : null);
+  }, [userEmail]);
+
+  const changeAvatar = (id: string | null) => {
+    setAvatarId(id);
+    if (!userEmail) return;
+    if (id) localStorage.setItem(avatarKey(userEmail), id);
+    else localStorage.removeItem(avatarKey(userEmail));
+  };
+  
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   
   const [emailInput, setEmailInput] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) || '');
@@ -996,7 +1015,7 @@ export function useAppController() {
 
 
   return {
-    isDemoMode, userEmail,
+    isDemoMode, userEmail, avatarId, changeAvatar,
     token, setToken, authView, setAuthView, emailInput, setEmailInput,
     passwordInput, setPasswordInput, authError, setAuthError,
     confirmPasswordInput, setConfirmPasswordInput, showPassword, setShowPassword,

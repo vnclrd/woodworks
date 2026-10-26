@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import UserAvatar from '../ui/UserAvatar';
+import AvatarPickerModal from '../modals/AvatarPickerModal';
 import { SquareCheckBig, FolderPlus, Folder, Settings, Trash2, AlertTriangle, X, HelpCircle } from 'lucide-react';
 import type { AppController } from '../../hooks/useAppController';
 
@@ -8,8 +11,10 @@ export default function Sidebar({ app, onStartGuide }: Props) {
     navItems, selectedGroupId, filter, setFilter, setSelectedGroupId, 
     setMobilePanel, setGroupNameInput, setIsGroupModalOpen, groups, tasks, 
     completedCount, setIsAccountManagerOpen, handleDeleteGroup,
-    groupToDelete, setGroupToDelete, userEmail
+    groupToDelete, setGroupToDelete, userEmail, avatarId, changeAvatar
   } = app;
+
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
   return (
   <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#212529] border-r border-white/10 p-3 overflow-hidden relative">
@@ -122,12 +127,14 @@ export default function Sidebar({ app, onStartGuide }: Props) {
     <div className="shrink-0 border-t border-white/15 pt-3">
       {userEmail && (
         <div className="flex items-center gap-2.5 px-2.5 pb-3" title={userEmail}>
-          <div
-            className="w-7 h-7 shrink-0 rounded-full bg-[#BF5700] text-white text-xs font-semibold flex items-center justify-center uppercase"
-            aria-hidden="true"
+          <button
+            onClick={() => setIsAvatarPickerOpen(true)}
+            title="Change profile picture"
+            aria-label="Change profile picture"
+            className="shrink-0 rounded-full cursor-pointer hover:ring-2 hover:ring-white/40 transition"
           >
-            {userEmail.charAt(0)}
-          </div>
+            <UserAvatar email={userEmail} avatarId={avatarId} size={28} />
+          </button>
           <div className="min-w-0">
             <p className="text-[11px] leading-none text-white/45 mb-1">Signed in as</p>
             <p className="text-xs text-white/80 truncate">{userEmail}</p>
@@ -154,6 +161,15 @@ export default function Sidebar({ app, onStartGuide }: Props) {
         </button>
       )}
     </div>
+
+    {isAvatarPickerOpen && (
+      <AvatarPickerModal
+        email={userEmail}
+        currentId={avatarId}
+        onSave={(id) => { changeAvatar(id); setIsAvatarPickerOpen(false); }}
+        onClose={() => setIsAvatarPickerOpen(false)}
+      />
+    )}
 
     {/* Custom Delete Confirmation Modal */}
     {groupToDelete && (
