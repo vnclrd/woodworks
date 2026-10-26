@@ -59,6 +59,7 @@ export default function AuthScreen({ app }: Props) {
         if (!response.ok) throw new Error(data.error || 'Registration failed.');
 
         setVerificationPendingEmail(emailInput.trim());
+        localStorage.setItem('woodworks_guide_pending', '1');
         showToast('Account created! Verification email sent.');
       } catch (err: any) {
         setAuthError(err.message || "Couldn't reach the server.");

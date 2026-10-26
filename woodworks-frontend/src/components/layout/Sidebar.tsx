@@ -1,14 +1,14 @@
-import { SquareCheckBig, FolderPlus, Folder, Settings, Trash2, AlertTriangle, X } from 'lucide-react';
+import { SquareCheckBig, FolderPlus, Folder, Settings, Trash2, AlertTriangle, X, HelpCircle } from 'lucide-react';
 import type { AppController } from '../../hooks/useAppController';
 
-type Props = { app: AppController };
+type Props = { app: AppController; onStartGuide?: () => void };
 
-export default function Sidebar({ app }: Props) {
+export default function Sidebar({ app, onStartGuide }: Props) {
   const { 
     navItems, selectedGroupId, filter, setFilter, setSelectedGroupId, 
     setMobilePanel, setGroupNameInput, setIsGroupModalOpen, groups, tasks, 
     completedCount, setIsAccountManagerOpen, handleDeleteGroup,
-    groupToDelete, setGroupToDelete 
+    groupToDelete, setGroupToDelete, userEmail
   } = app;
 
   return (
@@ -23,7 +23,7 @@ export default function Sidebar({ app }: Props) {
       </div>
     </div>
 
-    <nav className="shrink-0 space-y-0.5" aria-label="Task filters">
+    <nav className="shrink-0 space-y-0.5" aria-label="Task filters" data-guide="sidebar-filters">
       {navItems.map(({ key, label, icon: Icon, count }) => {
         const active = !selectedGroupId && filter === key;
         return (
@@ -50,7 +50,7 @@ export default function Sidebar({ app }: Props) {
     </nav>
 
     <div className="shrink-0 mt-3 border-t border-white/15 pt-3">
-      <div className="flex items-center justify-between px-2.5 mb-2">
+      <div className="flex items-center justify-between px-2.5 mb-2" data-guide="sidebar-groups">
         <p className="text-xs font-semibold text-white/60">Groups</p>
         <button
           onClick={() => { setGroupNameInput(''); setIsGroupModalOpen(true); }}
@@ -108,7 +108,7 @@ export default function Sidebar({ app }: Props) {
       })}
     </div>
 
-    <div className="shrink-0 mt-4 px-2.5 pb-3">
+    <div className="shrink-0 mt-4 px-2.5 pb-3" data-guide="sidebar-progress">
       <p className="text-xs font-semibold text-white/60 mb-2">Progress</p>
       <div className="h-2 rounded-full bg-white/15 overflow-hidden">
         <div
@@ -118,15 +118,41 @@ export default function Sidebar({ app }: Props) {
       </div>
       <p className="text-xs text-white/60 mt-1.5">{completedCount} of {tasks.length} done</p>
     </div>
-
+    
     <div className="shrink-0 border-t border-white/15 pt-3">
+      {userEmail && (
+        <div className="flex items-center gap-2.5 px-2.5 pb-3" title={userEmail}>
+          <div
+            className="w-7 h-7 shrink-0 rounded-full bg-[#BF5700] text-white text-xs font-semibold flex items-center justify-center uppercase"
+            aria-hidden="true"
+          >
+            {userEmail.charAt(0)}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] leading-none text-white/45 mb-1">Signed in as</p>
+            <p className="text-xs text-white/80 truncate">{userEmail}</p>
+          </div>
+        </div>
+      )}
+      
       <button
         onClick={() => setIsAccountManagerOpen(true)}
+        data-guide="sidebar-account"
         className="w-full h-10 flex items-center gap-2.5 px-2.5 rounded text-sm text-white/75 hover:bg-[#495057] hover:text-white transition-colors cursor-pointer"
       >
         <Settings className="w-4 h-4" />
         <span>Account Manager</span>
       </button>
+
+      {onStartGuide && (
+        <button
+          onClick={onStartGuide}
+          className="w-full h-10 flex items-center gap-2.5 px-2.5 rounded text-sm text-white/75 hover:bg-[#495057] hover:text-white transition-colors cursor-pointer"
+        >
+          <HelpCircle className="w-4 h-4" />
+          <span>App Guide</span>
+        </button>
+      )}
     </div>
 
     {/* Custom Delete Confirmation Modal */}

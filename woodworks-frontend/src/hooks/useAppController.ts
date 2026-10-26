@@ -18,9 +18,27 @@ import { mergeLocalGroupAssignments } from '../utils/taskGroups';
 import { useMediaQuery } from './useMediaQuery';
 import { fetchGroupsApi, createGroupApi, deleteGroupApi } from '../services/woodworksApi';
 
+const USER_EMAIL_KEY = 'woodworks_user_email';
+
+// Fallback for people who were already logged in before this key existed.
+// Only works if your token is a JWT that carries the email in "email" or "sub".
+function emailFromToken(token: string | null): string | null {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const value = payload.email ?? payload.sub;
+    return typeof value === 'string' && value.includes('@') ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useAppController() {
   const [token, setToken] = useState<string | null>(
     localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
+  );
+  const [userEmail, setUserEmail] = useState<string | null>(
+    () => localStorage.getItem(USER_EMAIL_KEY) || sessionStorage.getItem(USER_EMAIL_KEY) || emailFromToken(token)
   );
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   
@@ -306,6 +324,8 @@ export function useAppController() {
       const persist = authView === 'register' || rememberMe;
       (persist ? localStorage : sessionStorage).setItem(TOKEN_KEY, data.token);
       (persist ? sessionStorage : localStorage).removeItem(TOKEN_KEY);
+      (persist ? localStorage : sessionStorage).setItem(USER_EMAIL_KEY, emailInput.trim());   // ← add
+      (persist ? sessionStorage : localStorage).removeItem(USER_EMAIL_KEY); 
 
       if (rememberMe) {
         localStorage.setItem(REMEMBERED_EMAIL_KEY, emailInput.trim());
@@ -314,6 +334,7 @@ export function useAppController() {
       }
 
       setToken(data.token);
+      setUserEmail(emailInput.trim());
       setPasswordInput('');
       setConfirmPasswordInput('');
       setShowPassword(false);
@@ -332,8 +353,11 @@ export function useAppController() {
   const clearSession = () => {
     localStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_EMAIL_KEY);
+    sessionStorage.removeItem(USER_EMAIL_KEY);
     localStorage.removeItem(TASKS_CACHE_KEY);
     setToken(null);
+    setUserEmail(null);
     setTasks([]);
     setDailyTasks([]);
     setSelectedGroupId(null);
@@ -972,7 +996,7 @@ export function useAppController() {
 
 
   return {
-    isDemoMode,
+    isDemoMode, userEmail,
     token, setToken, authView, setAuthView, emailInput, setEmailInput,
     passwordInput, setPasswordInput, authError, setAuthError,
     confirmPasswordInput, setConfirmPasswordInput, showPassword, setShowPassword,

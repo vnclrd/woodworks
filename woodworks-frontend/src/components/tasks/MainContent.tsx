@@ -163,6 +163,7 @@ export default function MainContent({ app }: Props) {
       >
         {/* Main task card */}
         <div
+          data-guide="tasks-card"
           className={`${
             cardsSideBySide || mobilePanel === 'tasks' ? 'flex' : 'hidden'
           } @container min-w-0 min-h-0 flex-col bg-white border border-[#DEE2E6] rounded-md overflow-hidden`}
@@ -302,7 +303,10 @@ export default function MainContent({ app }: Props) {
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-end gap-1">
+                      <div 
+                        data-guide={filteredTasks[0]?.id === task.id ? 'task-actions' : undefined}
+                        className="flex items-center justify-end gap-1"
+                      >
                         {!task.completed && (
                           <>
                             <button
@@ -361,6 +365,7 @@ export default function MainContent({ app }: Props) {
           {/* Quick Add Task */}
           {!isFirstLoad && (
             <form
+              data-guide="quick-add"
               onSubmit={handleQuickAdd}
               className={`shrink-0 relative flex items-center gap-3 px-4 h-12 transition-all duration-200 ${
                 quickTitleAtLimit
@@ -411,6 +416,7 @@ export default function MainContent({ app }: Props) {
               {/* Microphone toggle button */}
               <button
                 type="button"
+                data-guide="quick-mic"
                 onClick={() => setIsListening(!isListening)}
                 title={isListening ? 'Stop listening' : 'Add task via voice'}
                 aria-label={
@@ -471,6 +477,7 @@ export default function MainContent({ app }: Props) {
 
         {/* Daily Tasks Card */}
         <section
+          data-guide="daily-card"
           aria-label="Daily tasks"
           className={`${
             cardsSideBySide || mobilePanel === 'daily' ? 'flex' : 'hidden'

@@ -16,7 +16,7 @@ export default function AppHeader({ app }: Props) {
     <span className="hidden sm:inline font-semibold text-[15px]">WoodWorks</span>
   </div>
 
-  <div className="relative flex-1 min-w-0 max-w-md">
+  <div className="relative flex-1 min-w-0 max-w-md" data-guide="header-search">
     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5C636A]" />
     <input
       type="text"
@@ -39,6 +39,7 @@ export default function AppHeader({ app }: Props) {
 
   <button
     onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+    data-guide="header-sort"
     title="Toggle creation date sort"
     className="h-9 px-3 flex items-center rounded border border-[#DEE2E6] bg-white text-xs font-medium text-[#495057] hover:bg-[#2125290F] transition-colors cursor-pointer shrink-0"
   >
@@ -60,6 +61,7 @@ export default function AppHeader({ app }: Props) {
     )}
     <button
       onClick={() => { fetchTasks(false); fetchDailyTasks(); }}
+      data-guide="header-refresh"
       title="Refresh tasks"
       aria-label="Refresh tasks"
       className="h-9 w-9 flex items-center justify-center rounded text-[#495057] hover:bg-[#2125290F] transition-colors cursor-pointer"
@@ -68,6 +70,7 @@ export default function AppHeader({ app }: Props) {
     </button>
     <button
       onClick={openCreateModal}
+      data-guide="header-create"
       aria-label="Create task"
       className="h-9 flex items-center gap-1.5 px-3 rounded bg-[#212529] hover:bg-[#495057] text-white text-sm font-medium transition-colors cursor-pointer"
     >
@@ -77,6 +80,7 @@ export default function AppHeader({ app }: Props) {
     {!isDemoMode && (
       <button
         onClick={handleLogout}
+        data-guide="header-logout"
         title="Sign out"
         aria-label="Sign out"
         className="h-9 px-2.5 sm:px-3 flex items-center gap-1.5 text-xs font-medium text-[#495057] hover:bg-[#2125290F] rounded transition-colors cursor-pointer"

@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import AuthScreen from './components/auth/AuthScreen';
 import VerifyEmailScreen from './components/auth/VerifyEmailScreen';
 import ResetPasswordScreen from './components/auth/ResetPasswordScreen';
+import GuideTour from './components/guide/GuideTour';
 import AppHeader from './components/layout/AppHeader';
 import RightSidebar from './components/layout/RightSidebar';
 import Sidebar from './components/layout/Sidebar';
@@ -15,6 +17,19 @@ import { useAppController } from './hooks/useAppController';
 
 export default function App() {
   const app = useAppController();
+
+  const GUIDE_PENDING = 'woodworks_guide_pending';
+  const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => {
+    if (app.isAuthScreen || app.isFirstLoad) return;
+    if (localStorage.getItem(GUIDE_PENDING) === '1') setShowGuide(true);
+  }, [app.isAuthScreen, app.isFirstLoad]);
+
+  const closeGuide = () => {
+    localStorage.removeItem(GUIDE_PENDING);
+    setShowGuide(false);
+  };
 
   const params = new URLSearchParams(window.location.search);
   const resetToken = params.get('token');
@@ -42,7 +57,7 @@ export default function App() {
 
           <AppHeader app={app} />
           <div className="flex flex-1 min-h-0">
-            <Sidebar app={app} />
+            <Sidebar app={app} onStartGuide={() => setShowGuide(true)} />
             <MainContent app={app} />
             <RightSidebar app={app} />
           </div>
@@ -52,6 +67,7 @@ export default function App() {
           <AccountManagerModal app={app} />
           <DeleteAccountConfirmModal app={app} />
           <TaskDeleteModal app={app} />
+          {showGuide && <GuideTour onClose={closeGuide} />}
         </div>
       )}
       <ToastMessage app={app} />

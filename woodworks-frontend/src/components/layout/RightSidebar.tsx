@@ -951,6 +951,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
             return (
               <button
                 key={tab.id}
+                data-guide={`tab-${tab.id}`}
                 onClick={() => { setActiveTab(idx); setIsCollapsed(false); }}
                 aria-label={tab.label}
                 title={tab.id === 1 && timer.isRunning ? `Timer · ${formatTime(timer.remaining)} left` : tab.label}
@@ -993,6 +994,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
               return (
                 <button
                   key={tab.id}
+                  data-guide={`tab-${tab.id}`}
                   id={`rs-tab-${tab.id}`}
                   role="tab"
                   aria-selected={isActive}
