@@ -3,12 +3,15 @@ package com.woodworks.controller;
 import com.woodworks.model.User;
 import com.woodworks.repository.UserRepository;
 import com.woodworks.security.JwtUtil;
+import com.woodworks.service.EmailService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -16,11 +19,13 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
+    private final EmailService emailService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    public AuthController(UserRepository userRepository, JwtUtil jwtUtil) {
+    public AuthController(UserRepository userRepository, JwtUtil jwtUtil, EmailService emailService) {
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
+        this.emailService = emailService;
     }
 
     @PostMapping("/register")
@@ -33,10 +38,33 @@ public class AuthController {
         }
 
         User user = new User(email, passwordEncoder.encode(password));
+        String verificationToken = UUID.randomUUID().toString();
+        user.setVerificationToken(verificationToken);
+        user.setEnabled(false); // Must verify email before login
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(email);
-        return ResponseEntity.ok(Map.of("token", token, "email", email));
+        // Send verification email (Update URL to match your domain/frontend route)
+        String verifyUrl = "http://localhost:5173/verify-email?token=" + verificationToken;
+        emailService.sendEmail(email, "Verify your WoodWorks Account", 
+            "Please click the link below to verify your email address:\n" + verifyUrl);
+
+        return ResponseEntity.ok(Map.of("message", "Registration successful. Please check your email to verify your account."));
+    }
+
+    @GetMapping("/verify")
+    public ResponseEntity<?> verifyEmail(@RequestParam("token") String token) {
+        Optional<User> userOpt = userRepository.findByVerificationToken(token);
+
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired verification token"));
+        }
+
+        User user = userOpt.get();
+        user.setEnabled(true);
+        user.setVerificationToken(null);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(Map.of("message", "Email verified successfully! You can now log in."));
     }
 
     @PostMapping("/login")
@@ -49,7 +77,59 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
         }
 
+        User user = userOpt.get();
+        if (!user.isEnabled()) {
+            return ResponseEntity.status(403).body(Map.of("error", "Please verify your email address before logging in"));
+        }
+
         String token = jwtUtil.generateToken(email);
         return ResponseEntity.ok(Map.of("token", token, "email", email));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        // For security reasons, don't reveal if email exists or not
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            String resetToken = UUID.randomUUID().toString();
+            user.setResetToken(resetToken);
+            user.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30)); // 30 min expiry
+            userRepository.save(user);
+
+            String resetUrl = "http://localhost:5173/reset-password?token=" + resetToken;
+            emailService.sendEmail(email, "Reset your WoodWorks Password", 
+                "Click the link below to reset your password. This link expires in 30 minutes:\n" + resetUrl);
+        }
+
+        return ResponseEntity.ok(Map.of("message", "If an account with that email exists, a password reset link has been sent."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+        String newPassword = request.get("newPassword");
+
+        if (newPassword == null || newPassword.length() < 8) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 8 characters long"));
+        }
+
+        Optional<User> userOpt = userRepository.findAll().stream()
+                .filter(u -> token.equals(u.getResetToken()) && u.getResetTokenExpiry() != null && u.getResetTokenExpiry().isAfter(LocalDateTime.now()))
+                .findFirst();
+
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired password reset token"));
+        }
+
+        User user = userOpt.get();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetToken(null);
+        user.setResetTokenExpiry(null);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(Map.of("message", "Password has been successfully reset. You can now log in."));
     }
 }

@@ -1,4 +1,5 @@
 import AuthScreen from './components/auth/AuthScreen';
+import VerifyEmailScreen from './components/auth/VerifyEmailScreen';
 import AppHeader from './components/layout/AppHeader';
 import RightSidebar from './components/layout/RightSidebar';
 import Sidebar from './components/layout/Sidebar';
@@ -13,6 +14,10 @@ import { useAppController } from './hooks/useAppController';
 
 export default function App() {
   const app = useAppController();
+
+  if (window.location.pathname === '/verify-email') {
+    return <VerifyEmailScreen />;
+  }
 
   return (
     <>

@@ -22,7 +22,12 @@ public class User {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    // Add this OneToMany relationship mapping
+    // New fields for email verification and password reset
+    private boolean enabled = false;
+    private String verificationToken;
+    private String resetToken;
+    private LocalDateTime resetTokenExpiry;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Task> tasks = new ArrayList<>();
 
@@ -46,6 +51,18 @@ public class User {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public String getVerificationToken() { return verificationToken; }
+    public void setVerificationToken(String verificationToken) { this.verificationToken = verificationToken; }
+
+    public String getResetToken() { return resetToken; }
+    public void setResetToken(String resetToken) { this.resetToken = resetToken; }
+
+    public LocalDateTime getResetTokenExpiry() { return resetTokenExpiry; }
+    public void setResetTokenExpiry(LocalDateTime resetTokenExpiry) { this.resetTokenExpiry = resetTokenExpiry; }
 
     public List<Task> getTasks() { return tasks; }
     public void setTasks(List<Task> tasks) { this.tasks = tasks; }
