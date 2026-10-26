@@ -34,6 +34,8 @@ public class User {
     private String resetPasswordToken;
     private LocalDateTime resetPasswordExpiresAt;
 
+    private String avatar;
+
     // Constructors
     public User() {}
 
@@ -75,4 +77,7 @@ public class User {
 
     public LocalDateTime getResetPasswordExpiresAt() { return resetPasswordExpiresAt; }
     public void setResetPasswordExpiresAt(LocalDateTime resetPasswordExpiresAt) { this.resetPasswordExpiresAt = resetPasswordExpiresAt; }
+
+    public String getAvatar() { return avatar; }
+    public void setAvatar(String avatar) { this.avatar = avatar; }
 }

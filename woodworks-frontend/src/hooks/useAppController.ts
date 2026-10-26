@@ -47,16 +47,34 @@ export function useAppController() {
     () => (userEmail ? localStorage.getItem(avatarKey(userEmail)) : null)
   );
 
-  // When a different account signs in, load that account's avatar
   useEffect(() => {
     setAvatarId(userEmail ? localStorage.getItem(avatarKey(userEmail)) : null);
   }, [userEmail]);
 
-  const changeAvatar = (id: string | null) => {
+  const changeAvatar = async (id: string | null) => {
     setAvatarId(id);
     if (!userEmail) return;
-    if (id) localStorage.setItem(avatarKey(userEmail), id);
-    else localStorage.removeItem(avatarKey(userEmail));
+
+    if (id) {
+      localStorage.setItem(avatarKey(userEmail), id);
+    } else {
+      localStorage.removeItem(avatarKey(userEmail));
+    }
+
+    if (!isDemoMode && token) {
+      try {
+        await fetch(`${BASE_URL.replace(/\/$/, '')}/api/auth/update-avatar`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ email: userEmail, avatar: id })
+        });
+      } catch (err) {
+        console.warn('Could not sync avatar change to backend.', err);
+      }
+    }
   };
   
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
@@ -343,13 +361,22 @@ export function useAppController() {
       const persist = authView === 'register' || rememberMe;
       (persist ? localStorage : sessionStorage).setItem(TOKEN_KEY, data.token);
       (persist ? sessionStorage : localStorage).removeItem(TOKEN_KEY);
-      (persist ? localStorage : sessionStorage).setItem(USER_EMAIL_KEY, emailInput.trim());   // ← add
+      (persist ? localStorage : sessionStorage).setItem(USER_EMAIL_KEY, emailInput.trim());
       (persist ? sessionStorage : localStorage).removeItem(USER_EMAIL_KEY); 
 
       if (rememberMe) {
         localStorage.setItem(REMEMBERED_EMAIL_KEY, emailInput.trim());
       } else {
         localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+      }
+
+      // Save the avatar returned from the backend login response into localStorage
+      if (data.avatar) {
+        localStorage.setItem(avatarKey(emailInput.trim()), data.avatar);
+        setAvatarId(data.avatar);
+      } else {
+        localStorage.removeItem(avatarKey(emailInput.trim()));
+        setAvatarId(null);
       }
 
       setToken(data.token);

@@ -117,7 +117,11 @@ public class AuthController {
         }
 
         String token = jwtUtil.generateToken(email);
-        return ResponseEntity.ok(Map.of("token", token, "email", email));
+        return ResponseEntity.ok(Map.of(
+            "token", token, 
+            "email", email, 
+            "avatar", user.getAvatar() != null ? user.getAvatar() : ""
+        ));
     }
 
     @PostMapping("/forgot-password")
@@ -190,5 +194,29 @@ public class AuthController {
         userRepository.save(user);
 
         return ResponseEntity.ok(Map.of("message", "Password successfully reset. You can now sign in with your new password."));
+    }
+
+    @PostMapping("/update-avatar")
+    public ResponseEntity<?> updateAvatar(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        // Remove 'avatar == null' check so users can switch back to the default avatar (null)
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is required."));
+        }
+
+        Optional<User> userOpt = userRepository.findByEmail(email.trim());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "User not found."));
+        }
+
+        User user = userOpt.get();
+        String avatar = request.get("avatar");
+        user.setAvatar(avatar); 
+        userRepository.save(user);
+
+        return ResponseEntity.ok(Map.of(
+            "message", "Avatar updated successfully", 
+            "avatar", avatar != null ? avatar : ""
+        ));
     }
 }
