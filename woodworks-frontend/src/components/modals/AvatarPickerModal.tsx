@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import { AVATARS } from '../ui/avatars';
 import UserAvatar from '../ui/UserAvatar';
+import { BASE_URL } from '../../config/appConfig'; // Adjust relative path to your config if necessary
 
 type Props = {
   email: string | null;
@@ -12,12 +13,39 @@ type Props = {
 
 export default function AvatarPickerModal({ email, currentId, onSave, onClose }: Props) {
   const [selected, setSelected] = useState<string | null>(currentId);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  const handleSave = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (email) {
+        const res = await fetch(`${BASE_URL.replace(/\/$/, '')}/api/auth/update-avatar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, avatar: selected })
+        });
+        
+        if (!res.ok) throw new Error('Failed to update avatar on the server.');
+      }
+
+      // Notify parent component of the new avatar state and close
+      onSave(selected);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while saving.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const tile = (active: boolean) =>
     `relative flex flex-col items-center gap-1.5 rounded p-2 border-2 transition-colors cursor-pointer ${
@@ -48,6 +76,13 @@ export default function AvatarPickerModal({ email, currentId, onSave, onClose }:
           </button>
         </div>
 
+        {error && (
+          <div role="alert" className="mb-4 flex items-start gap-2.5 p-3 bg-[#FFECEB] border border-[#C9372C33] text-[#AE2E24] text-sm rounded">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-4 gap-1.5 mb-5">
           {/* Default: first letter of the email */}
           <button type="button" onClick={() => setSelected(null)} aria-pressed={selected === null} className={tile(selected === null)}>
@@ -69,16 +104,19 @@ export default function AvatarPickerModal({ email, currentId, onSave, onClose }:
           <button
             type="button"
             onClick={onClose}
-            className="h-9 px-3 rounded text-sm font-medium text-[#495057] hover:bg-[#2125290F] cursor-pointer"
+            disabled={isLoading}
+            className="h-9 px-3 rounded text-sm font-medium text-[#495057] hover:bg-[#2125290F] cursor-pointer disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={() => onSave(selected)}
-            className="h-9 px-3 rounded bg-[#212529] hover:bg-[#495057] text-white text-sm font-medium transition-colors cursor-pointer"
+            onClick={handleSave}
+            disabled={isLoading}
+            className="h-9 px-3 flex items-center justify-center gap-2 rounded bg-[#212529] hover:bg-[#495057] text-white text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
           >
-            Save
+            {isLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+            {isLoading ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
