@@ -230,7 +230,7 @@ export default function MainContent({ app }: Props) {
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
                         className={`grid grid-cols-[2rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_11.5rem_8rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] ${
                           pinned && urgent
-                            ? 'bg-[#FFDEDE] shadow-[inset_6px_0_0_#DC2626]'
+                            ? 'bg-[#FFEEEE] shadow-[inset_6px_0_0_#DC2626]'
                             : pinned
                               ? 'bg-[#FFF9F0] shadow-[inset_3px_0_0_#D97706]'
                               : urgent
