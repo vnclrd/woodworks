@@ -384,6 +384,8 @@ export function useAppController() {
       setPasswordInput('');
       setConfirmPasswordInput('');
       setShowPassword(false);
+      setIsSidebarOpen(false);
+      setIsSidebarCollapsed(true);
       showToast(authView === 'login' ? 'Logged in successfully' : 'Account created successfully');
     } catch (err: any) {
       if (err instanceof TypeError) {
@@ -407,6 +409,8 @@ export function useAppController() {
     setTasks([]);
     setDailyTasks([]);
     setSelectedGroupId(null);
+    setIsSidebarOpen(false);
+    setIsSidebarCollapsed(true);
   };
 
   const handleLogout = () => {
