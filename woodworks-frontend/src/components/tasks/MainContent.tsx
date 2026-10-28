@@ -544,49 +544,56 @@ export default function MainContent({ app }: Props) {
                 </p>
               </div>
             ) : (
-              <ul className='divide-y divide-line'>
-                {dailyTasks.map((daily) => {
-                  const done = daily.lastCompleted === today;
+              <motion.ul layout className='divide-y divide-line'>
+                <AnimatePresence>
+                  {dailyTasks.map((daily) => {
+                    const done = daily.lastCompleted === today;
 
-                  return (
-                    <li
-                      key={daily.id}
-                      className='flex items-center gap-3 px-4 py-3 hover:bg-subtle transition-colors group'
-                    >
-                      <button
-                        onClick={() => toggleDaily(daily)}
-                        aria-label={
-                          done ? 'Mark as not done today' : 'Mark as done today'
-                        }
-                        className='shrink-0 text-fg-3 hover:text-ok transition-colors cursor-pointer'
+                    return (
+                      <motion.li
+                        key={daily.id}
+                        layout
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -50 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        className='flex items-center gap-3 px-4 py-3 hover:bg-subtle transition-colors group'
                       >
-                        {done ? (
-                          <CheckCircle2 className='w-5 h-5 text-ok' />
-                        ) : (
-                          <Circle className='w-5 h-5' />
-                        )}
-                      </button>
+                        <button
+                          onClick={() => toggleDaily(daily)}
+                          aria-label={
+                            done ? 'Mark as not done today' : 'Mark as done today'
+                          }
+                          className='shrink-0 text-fg-3 hover:text-ok transition-colors cursor-pointer'
+                        >
+                          {done ? (
+                            <CheckCircle2 className='w-5 h-5 text-ok' />
+                          ) : (
+                            <Circle className='w-5 h-5' />
+                          )}
+                        </button>
 
-                      <span
-                        title={daily.title}
-                        className={`flex-1 min-w-0 truncate text-sm font-medium ${
-                          done ? 'line-through text-fg-3' : ''
-                        }`}
-                      >
-                        {daily.title}
-                      </span>
+                        <span
+                          title={daily.title}
+                          className={`flex-1 min-w-0 truncate text-sm font-medium ${
+                            done ? 'line-through text-fg-3' : ''
+                          }`}
+                        >
+                          {daily.title}
+                        </span>
 
-                      <button
-                        onClick={() => deleteDaily(daily.id)}
-                        aria-label='Remove daily task'
-                        className='shrink-0 p-1.5 rounded text-fg-2 hover:bg-danger-bg hover:text-danger cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity'
-                      >
-                        <Trash2 className='w-4 h-4' />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                        <button
+                          onClick={() => deleteDaily(daily.id)}
+                          aria-label='Remove daily task'
+                          className='shrink-0 p-1.5 rounded text-fg-2 hover:bg-danger-bg hover:text-danger cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity'
+                        >
+                          <Trash2 className='w-4 h-4' />
+                        </button>
+                      </motion.li>
+                    );
+                  })}
+                </AnimatePresence>
+              </motion.ul>
             )}
           </div>
 
