@@ -159,6 +159,13 @@ export function useAppController() {
   const [mobilePanel, setMobilePanel] = useState<'tasks' | 'daily'>('tasks');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
+  useEffect(() => {
+    if (token) {
+      setIsSidebarOpen(false);
+      setIsSidebarCollapsed(true);
+    }
+  }, [token]);
+
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
   const hasRoomForBothCardsWithChat = useMediaQuery('(min-width: 1440px)');
   const hasRoomForBothCardsWithRail = useMediaQuery('(min-width: 1240px)');
@@ -806,11 +813,6 @@ export function useAppController() {
       updated.completed ? 'completion' : 'info'
     );
 
-    if (isDemoMode) {
-      setTasks(tasks.map(t => t.id === task.id ? updated : t));
-      return;
-    }
-    
     if (isDemoMode) {
       setTasks(tasks.map(t => t.id === task.id ? updated : t));
       return;
