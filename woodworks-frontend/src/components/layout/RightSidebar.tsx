@@ -569,20 +569,39 @@ export default function RightSidebar({ app }: RightSidebarProps) {
 
         {task ? (
           <div className="space-y-4">
-            {/* Status + group (read only) */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            {/* Status + Group Selector */}
+            <div className="flex flex-wrap items-center gap-2">
               <span
-                className={`inline-flex items-center px-1.5 h-5 rounded-sm text-[11px] font-bold uppercase ${
+                className={`inline-flex items-center px-1.5 h-9 rounded text-[11px] font-bold uppercase ${
                   task.completed ? 'bg-[#DCFFF1] text-[#216E4E]' : 'bg-[#E9ECEF] text-[#495057]'
                 }`}
               >
                 {task.completed ? 'Done' : 'To do'}
               </span>
-              {group && (
-                <span className="inline-flex items-center max-w-full rounded-sm bg-[#F1F3F5] px-1.5 h-5 text-[11px] font-medium text-[#495057]">
-                  <span className="truncate">{group.name}</span>
-                </span>
-              )}
+              <div className="flex-1 min-w-32.5">
+                <select
+                  aria-label="Task group"
+                  value={task.groupId || ''}
+                  onChange={(e) => {
+                    const newGroupId = e.target.value ? e.target.value : null;
+                    const targetGroup = app.groups.find((g) => String(g.id) === String(newGroupId));
+                    const groupNameValue = targetGroup ? targetGroup.name : null;
+
+                    const updated = { ...task, groupId: newGroupId, groupName: groupNameValue };
+                    app.setTasks(app.tasks.map((t) => (t.id === task.id ? updated : t)));
+                    app.updateTaskBackend(updated);
+                    app.showToast(`Moved "${task.title}" to ${targetGroup ? targetGroup.name : 'No group'}`);
+                  }}
+                  className={`${fieldClass} h-9 text-xs`}
+                >
+                  <option value="">No group</option>
+                  {app.groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Title */}

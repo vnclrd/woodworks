@@ -936,6 +936,53 @@ export function useAppController() {
     }
   };
 
+  const moveTaskToGroup = async (task: Task, newGroupId: string | null) => {
+    const updated = { ...task, groupId: newGroupId };
+    
+    const targetGroup = groups.find(g => String(g.id) === String(newGroupId));
+    const groupNameValue = targetGroup ? targetGroup.name : null;
+
+    showToast(`Moved "${task.title}" to ${targetGroup ? targetGroup.name : 'No group'}`);
+
+    if (isDemoMode) {
+      setTasks(tasks.map(t => t.id === task.id ? { ...updated, groupName: groupNameValue } : t));
+      saveGroupAssignment(task.id, newGroupId);
+      return;
+    }
+
+    if (isBackendOnline) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/${task.id}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            title: task.title,
+            description: task.description,
+            completed: task.completed,
+            pinned: task.pinned ?? false,
+            urgent: task.urgent ?? false,
+            groupName: groupNameValue
+          })
+        });
+        if (response.ok) {
+          saveGroupAssignment(task.id, newGroupId);
+          setTasks(tasks.map(t => t.id === task.id ? { ...updated, groupName: groupNameValue } : t));
+        } else {
+          showToast("Couldn't move task group. Try again.", 'error');
+        }
+      } catch (err) {
+        showToast("Couldn't reach the server.", 'error');
+      }
+    } else {
+      setTasks(tasks.map(t => t.id === task.id ? { ...updated, groupName: groupNameValue } : t));
+      saveGroupAssignment(task.id, newGroupId);
+    }
+    logActivity(`Moved task "${task.title}" to group`);
+  };
+
   const openCreateModal = () => {
     setCurrentTask({ id: null, title: '', description: '', completed: false, pinned: false, urgent: false, groupId: selectedGroupId });
     setIsEditing(false);
