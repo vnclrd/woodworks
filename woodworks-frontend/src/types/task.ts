@@ -23,5 +23,5 @@ export interface DailyTask {
 
 export interface Toast {
   message: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'completion' | 'deletion' | 'info';
 }

@@ -219,7 +219,7 @@ export function useAppController() {
       // Unassign tasks locally in demo mode
       setTasks(tasks.map(t => String(t.groupId) === String(groupId) ? { ...t, groupId: null, groupName: null } : t));
       setSelectedGroupId(null);
-      showToast('Group deleted. Tasks moved to "No group".');
+      showToast('Group deleted. Tasks moved to "No group".', 'deletion');
       return;
     }
 
@@ -228,7 +228,7 @@ export function useAppController() {
       setGroups(prev => prev.filter(g => String(g.id) !== String(groupId)));
       setSelectedGroupId(null);
       fetchTasks(true);
-      showToast('Group deleted. Tasks moved to "No group".');
+      showToast('Group deleted. Tasks moved to "No group".', 'deletion');
       logActivity('Deleted a task group');
     } catch (err) {
       showToast("Couldn't delete the group. Try again.", 'error');
@@ -770,7 +770,7 @@ export function useAppController() {
     if (isDemoMode) {
       setTasks(tasks.filter(t => t.id !== id));
       saveGroupAssignment(id, null);
-      showToast('Task deleted (Demo Mode)');
+      showToast('Task deleted (Demo Mode)', 'deletion');
       return;
     }
 
@@ -783,7 +783,7 @@ export function useAppController() {
         if (response.ok) {
           setTasks(tasks.filter(t => t.id !== id));
           saveGroupAssignment(id, null);
-          showToast('Task deleted');
+          showToast('Task deleted', 'deletion');
           logActivity('Deleted task');
         } else {
           showToast("Couldn't delete the task. Try again.", 'error');
@@ -796,6 +796,16 @@ export function useAppController() {
 
   const toggleComplete = async (task: Task) => {
     const updated = { ...task, completed: !task.completed };
+    
+    showToast(
+      updated.completed ? `Completed "${task.title}"` : `Marked "${task.title}" as to do`,
+      updated.completed ? 'completion' : 'info'
+    );
+
+    if (isDemoMode) {
+      setTasks(tasks.map(t => t.id === task.id ? updated : t));
+      return;
+    }
     
     if (isDemoMode) {
       setTasks(tasks.map(t => t.id === task.id ? updated : t));
