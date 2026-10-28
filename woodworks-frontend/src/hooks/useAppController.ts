@@ -416,6 +416,7 @@ export function useAppController() {
     setTasks([]);
     setDailyTasks([]);
     setSelectedGroupId(null);
+    setActiveTaskId(null);
     setIsSidebarOpen(false);
     setIsSidebarCollapsed(true);
   };
