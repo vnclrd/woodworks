@@ -157,7 +157,7 @@ export function useAppController() {
   };
 
   const [mobilePanel, setMobilePanel] = useState<'tasks' | 'daily'>('tasks');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
   const hasRoomForBothCardsWithChat = useMediaQuery('(min-width: 1440px)');

@@ -52,6 +52,7 @@ export default function MainContent({ app }: Props) {
     handleAddDaily,
     dailyTitle,
     setDailyTitle,
+    setIsSidebarCollapsed,
   } = app;
 
   const [isListening, setIsListening] = useState(false);
@@ -250,6 +251,7 @@ export default function MainContent({ app }: Props) {
                         onClick={() => {
                           app.setActiveTaskId(task.id);
                           app.setIsSidebarOpen(true);
+                          setIsSidebarCollapsed(false);
                         }}
                         title={task.title}
                         className="min-w-0 text-left cursor-pointer"
