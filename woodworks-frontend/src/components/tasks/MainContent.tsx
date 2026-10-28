@@ -229,11 +229,15 @@ export default function MainContent({ app }: Props) {
                         exit={{ opacity: 0, x: -50 }}
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
                         className={`grid grid-cols-[2rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_11.5rem_8rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] ${
-                          pinned
-                            ? 'bg-[#FFF9F0] shadow-[inset_3px_0_0_#D97706]'
-                            : urgent
-                              ? 'shadow-[inset_3px_0_0_#BF5700]'
-                              : ''
+                          pinned && urgent
+                            ? 'bg-[#FFDEDE] shadow-[inset_6px_0_0_#DC2626]'
+                            : pinned
+                              ? 'bg-[#FFF9F0] shadow-[inset_3px_0_0_#D97706]'
+                              : urgent
+                                ? 'bg-[#FFF8F5] shadow-[inset_3px_0_0_#BF5700]'
+                                : task.completed
+                                  ? 'bg-[#F4FBF7] shadow-[inset_3px_0_0_#1F845A]'
+                                  : ''
                         }`}
                       >
                         <button
