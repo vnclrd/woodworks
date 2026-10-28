@@ -12,6 +12,7 @@ import {
   MicOff,
 } from 'lucide-react';
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { AppController } from '../../hooks/useAppController';
 
 const QUICK_TITLE_MAX = 100;
@@ -213,154 +214,161 @@ export default function MainContent({ app }: Props) {
                 </p>
               </div>
             ) : (
-              <ul className="divide-y divide-[#DEE2E6]">
-                {filteredTasks.map((task) => {
-                  const urgent = !task.completed && task.urgent;
-                  const pinned = !task.completed && task.pinned;
+              <motion.ul layout className="divide-y divide-[#DEE2E6]">
+                <AnimatePresence>
+                  {filteredTasks.map((task) => {
+                    const urgent = !task.completed && task.urgent;
+                    const pinned = !task.completed && task.pinned;
 
-                  return (
-                    <li
-                      key={task.id}
-                      className={`grid grid-cols-[2rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_11.5rem_8rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] transition-colors ${
-                        pinned
-                          ? 'bg-[#FFF9F0] shadow-[inset_3px_0_0_#D97706]'
-                          : urgent
-                            ? 'shadow-[inset_3px_0_0_#BF5700]'
-                            : ''
-                      }`}
-                    >
-                      <button
-                        onClick={() => toggleComplete(task)}
-                        aria-label={
-                          task.completed ? 'Mark as to do' : 'Mark as done'
-                        }
-                        className="text-[#5C636A] hover:text-[#1F845A] transition-colors cursor-pointer"
-                      >
-                        {task.completed ? (
-                          <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
-                        ) : (
-                          <Circle className="w-5 h-5" />
-                        )}
-                      </button>
-
-                      <span className="hidden @xl:block text-xs text-[#5C636A] font-medium">
-                        {getTaskKey(task)}
-                      </span>
-
-                      <button
-                        onClick={() => {
-                          app.setActiveTaskId(task.id);
-                          app.setIsSidebarOpen(true);
-                          setIsSidebarCollapsed(false);
-                        }}
-                        title={task.title}
-                        className="min-w-0 text-left cursor-pointer"
-                      >
-                        <p
-                          className={`text-sm font-medium truncate hover:underline ${
-                            task.completed
-                              ? 'line-through text-[#5C636A]'
+                    return (
+                      <motion.li
+                        key={task.id}
+                        layout
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -50 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        className={`grid grid-cols-[2rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_11.5rem_8rem] gap-3 px-4 py-3 items-center hover:bg-[#F8F9FA] ${
+                          pinned
+                            ? 'bg-[#FFF9F0] shadow-[inset_3px_0_0_#D97706]'
+                            : urgent
+                              ? 'shadow-[inset_3px_0_0_#BF5700]'
                               : ''
-                          }`}
+                        }`}
+                      >
+                        <button
+                          onClick={() => toggleComplete(task)}
+                          aria-label={
+                            task.completed ? 'Mark as to do' : 'Mark as done'
+                          }
+                          className="text-[#5C636A] hover:text-[#1F845A] transition-colors cursor-pointer"
                         >
+                          {task.completed ? (
+                            <CheckCircle2 className="w-5 h-5 text-[#1F845A]" />
+                          ) : (
+                            <Circle className="w-5 h-5" />
+                          )}
+                        </button>
+
+                        <span className="hidden @xl:block text-xs text-[#5C636A] font-medium">
+                          {getTaskKey(task)}
+                        </span>
+
+                        <button
+                          onClick={() => {
+                            app.setActiveTaskId(task.id);
+                            app.setIsSidebarOpen(true);
+                            setIsSidebarCollapsed(false);
+                          }}
+                          title={task.title}
+                          className="min-w-0 text-left cursor-pointer"
+                        >
+                          <p
+                            className={`text-sm font-medium truncate hover:underline ${
+                              task.completed
+                                ? 'line-through text-[#5C636A]'
+                                : ''
+                            }`}
+                          >
+                            {pinned && (
+                              <Pin className="inline w-3.5 h-3.5 mr-1 text-[#D97706]" />
+                            )}
+
+                            {urgent && (
+                              <Flag className="inline w-3.5 h-3.5 mr-1 text-[#BF5700]" />
+                            )}
+
+                            {task.title}
+                          </p>
+
+                          {task.description && (
+                            <p className="text-xs text-[#5C636A] mt-0.5 truncate">
+                              {task.description}
+                            </p>
+                          )}
+                        </button>
+
+                        <div className="hidden @xl:flex flex-wrap items-center content-center gap-1 min-w-0">
                           {pinned && (
-                            <Pin className="inline w-3.5 h-3.5 mr-1 text-[#D97706]" />
+                            <span className="inline-flex items-center px-1.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FEF3C7] text-[#B45309] leading-none shrink-0">
+                              Pinned
+                            </span>
                           )}
 
                           {urgent && (
-                            <Flag className="inline w-3.5 h-3.5 mr-1 text-[#BF5700]" />
+                            <span className="inline-flex items-center px-1.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FFEAD6] text-[#A34A00] leading-none shrink-0">
+                              Urgent
+                            </span>
                           )}
 
-                          {task.title}
-                        </p>
-
-                        {task.description && (
-                          <p className="text-xs text-[#5C636A] mt-0.5 truncate">
-                            {task.description}
-                          </p>
-                        )}
-                      </button>
-
-                      <div className="hidden @xl:flex flex-wrap items-center content-center gap-1 min-w-0">
-                        {pinned && (
-                          <span className="inline-flex items-center px-1.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FEF3C7] text-[#B45309] leading-none shrink-0">
-                            Pinned
+                          <span
+                            className={`inline-flex items-center px-1.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider leading-none shrink-0 ${
+                              task.completed
+                                ? 'bg-[#DCFFF1] text-[#216E4E]'
+                                : 'bg-[#E9ECEF] text-[#495057]'
+                            }`}
+                          >
+                            {task.completed ? 'Done' : 'To do'}
                           </span>
-                        )}
+                        </div>
 
-                        {urgent && (
-                          <span className="inline-flex items-center px-1.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#FFEAD6] text-[#A34A00] leading-none shrink-0">
-                            Urgent
-                          </span>
-                        )}
-
-                        <span
-                          className={`inline-flex items-center px-1.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider leading-none shrink-0 ${
-                            task.completed
-                              ? 'bg-[#DCFFF1] text-[#216E4E]'
-                              : 'bg-[#E9ECEF] text-[#495057]'
-                          }`}
+                        <div 
+                          data-guide={filteredTasks[0]?.id === task.id ? 'task-actions' : undefined}
+                          className="flex items-center justify-end gap-1"
                         >
-                          {task.completed ? 'Done' : 'To do'}
-                        </span>
-                      </div>
+                          {!task.completed && (
+                            <>
+                              <button
+                                onClick={() => togglePinned(task)}
+                                title={pinned ? 'Unpin task' : 'Pin task to top'}
+                                className={`p-1.5 rounded cursor-pointer ${
+                                  pinned
+                                    ? 'text-[#B45309] bg-[#FEF3C7]'
+                                    : 'text-[#495057] hover:bg-[#FEF3C7] hover:text-[#B45309]'
+                                }`}
+                              >
+                                <Pin className="w-4 h-4" />
+                              </button>
 
-                      <div 
-                        data-guide={filteredTasks[0]?.id === task.id ? 'task-actions' : undefined}
-                        className="flex items-center justify-end gap-1"
-                      >
-                        {!task.completed && (
-                          <>
-                            <button
-                              onClick={() => togglePinned(task)}
-                              title={pinned ? 'Unpin task' : 'Pin task to top'}
-                              className={`p-1.5 rounded cursor-pointer ${
-                                pinned
-                                  ? 'text-[#B45309] bg-[#FEF3C7]'
-                                  : 'text-[#495057] hover:bg-[#FEF3C7] hover:text-[#B45309]'
-                              }`}
-                            >
-                              <Pin className="w-4 h-4" />
-                            </button>
+                              <button
+                                onClick={() => toggleUrgent(task)}
+                                title={
+                                  urgent
+                                    ? 'Remove urgent tag'
+                                    : 'Mark as urgent'
+                                }
+                                className={`p-1.5 rounded cursor-pointer ${
+                                  urgent
+                                    ? 'text-[#A34A00] bg-[#FFEAD6]'
+                                    : 'text-[#495057] hover:bg-[#FFEAD6] hover:text-[#A34A00]'
+                                }`}
+                              >
+                                <Flag className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
 
-                            <button
-                              onClick={() => toggleUrgent(task)}
-                              title={
-                                urgent
-                                  ? 'Remove urgent tag'
-                                  : 'Mark as urgent'
-                              }
-                              className={`p-1.5 rounded cursor-pointer ${
-                                urgent
-                                  ? 'text-[#A34A00] bg-[#FFEAD6]'
-                                  : 'text-[#495057] hover:bg-[#FFEAD6] hover:text-[#A34A00]'
-                              }`}
-                            >
-                              <Flag className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
+                          <button
+                            onClick={() => openEditModal(task)}
+                            aria-label="Edit task"
+                            className="p-1.5 rounded text-[#495057] hover:bg-[#21252914] cursor-pointer"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
 
-                        <button
-                          onClick={() => openEditModal(task)}
-                          aria-label="Edit task"
-                          className="p-1.5 rounded text-[#495057] hover:bg-[#21252914] cursor-pointer"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          onClick={() => setTaskToDelete(task)}
-                          aria-label="Delete task"
-                          className="p-1.5 rounded text-[#495057] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                          <button
+                            onClick={() => setTaskToDelete(task)}
+                            aria-label="Delete task"
+                            className="p-1.5 rounded text-[#495057] hover:bg-[#FFECEB] hover:text-[#C9372C] cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </motion.li>
+                    );
+                  })}
+                </AnimatePresence>
+              </motion.ul>
             )}
           </div>
 
