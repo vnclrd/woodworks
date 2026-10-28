@@ -382,7 +382,7 @@ export default function MainContent({ app }: Props) {
                   ? 'border-2 border-[#D92D20] bg-[#FFF4F2] ring-2 ring-inset ring-[#D92D20]/15'
                   : quickTitleNearLimit
                     ? 'border border-[#F0B429] bg-[#FFFBEB] focus-within:ring-2 focus-within:ring-inset focus-within:ring-[#D97706]/15'
-                    : 'border border-[#DEE2E6] bg-[#F8F9FA] focus-within:bg-white focus-within:border-[#2684FF] focus-within:ring-2 focus-within:ring-inset focus-within:ring-[#2684FF]/15'
+                    : 'border border-[#DEE2E6] bg-[#F8F9FA] focus-within:bg-white'
               }`}
             >
               <Plus
@@ -407,7 +407,8 @@ export default function MainContent({ app }: Props) {
                 }
                 value={quickTitle}
                 onChange={(e) => setQuickTitle(e.target.value)}
-                className="min-w-0 flex-1 bg-transparent text-sm placeholder-[#5C636A] outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                style={{ outline: 'none', boxShadow: 'none', border: 'none' }}
+                className="min-w-0 flex-1 bg-transparent text-sm placeholder-[#5C636A] border-0 shadow-none outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0"
               />
 
               <span
