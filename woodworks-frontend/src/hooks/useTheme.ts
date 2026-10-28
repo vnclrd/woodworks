@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 export type Theme = 'light' | 'dark';
 
@@ -11,7 +12,9 @@ function getInitialTheme(): Theme {
   } catch {
     /* ignore */
   }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
 }
 
 export function useTheme() {
@@ -27,11 +30,31 @@ export function useTheme() {
   }, [theme]);
 
   const toggleTheme = useCallback(() => {
-  const root = document.documentElement;
-    root.classList.add('theme-transition');
-    setTheme(t => (t === 'dark' ? 'light' : 'dark'));
-    window.setTimeout(() => root.classList.remove('theme-transition'), 350);
-  }, []);
+    const root = document.documentElement;
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+
+    const apply = () => {
+      root.classList.toggle('dark', next === 'dark');
+      flushSync(() => setTheme(next));
+    };
+
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => { finished: Promise<unknown> };
+    };
+    const reduceMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
+
+    root.classList.add('theme-switching');
+    const done = () => root.classList.remove('theme-switching');
+
+    if (!doc.startViewTransition || reduceMotion) {
+      apply();
+      requestAnimationFrame(() => requestAnimationFrame(done));
+      return;
+    }
+    doc.startViewTransition(apply).finished.then(done, done);
+  }, [theme]);
 
   return { theme, isDark: theme === 'dark', toggleTheme };
 }
