@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import AuthScreen from './components/auth/AuthScreen';
-import VerifyEmailScreen from './components/auth/VerifyEmailScreen';
 import ResetPasswordScreen from './components/auth/ResetPasswordScreen';
+import VerifyEmailScreen from './components/auth/VerifyEmailScreen';
 import GuideTour from './components/guide/GuideTour';
 import AppHeader from './components/layout/AppHeader';
 import RightSidebar from './components/layout/RightSidebar';
@@ -39,7 +39,12 @@ export default function App() {
   }
 
   if (window.location.pathname === '/reset-password' && resetToken) {
-    return <ResetPasswordScreen token={resetToken} onSuccess={() => window.location.href = '/'} />;
+    return (
+      <ResetPasswordScreen
+        token={resetToken}
+        onSuccess={() => (window.location.href = '/')}
+      />
+    );
   }
 
   return (
@@ -47,16 +52,26 @@ export default function App() {
       {app.isAuthScreen ? (
         <AuthScreen app={app} />
       ) : (
-        <div className="h-dvh flex flex-col overflow-hidden bg-[#F8F9FA] text-[#212529]">
+        <div className='h-dvh flex flex-col overflow-hidden bg-page text-fg'>
           {app.isDemoMode && (
-            <div className="shrink-0 bg-[#E9ECEF] border-b border-[#DEE2E6] px-4 py-2 text-xs text-[#212529] flex items-center justify-between gap-3 font-medium">
-              <span>💡 <strong>Demo Mode:</strong> You are testing an interactive sandbox. Changes won't affect live production data.</span>
-              <a href="https://github.com/vnclrd/woodworks" target="_blank" rel="noreferrer" className="shrink-0 underline hover:text-[#495057]">View Source</a>
+            <div className='shrink-0 bg-chip border-b border-line px-4 py-2 text-xs text-fg flex items-center justify-between gap-3 font-medium'>
+              <span>
+                💡 <strong>Demo Mode:</strong> You are testing an interactive
+                sandbox. Changes won't affect live production data.
+              </span>
+              <a
+                href='https://github.com/vnclrd/woodworks'
+                target='_blank'
+                rel='noreferrer'
+                className='shrink-0 underline hover:text-fg-2'
+              >
+                View Source
+              </a>
             </div>
           )}
 
           <AppHeader app={app} />
-          <div className="flex flex-1 min-h-0">
+          <div className='flex flex-1 min-h-0'>
             <Sidebar app={app} onStartGuide={() => setShowGuide(true)} />
             <MainContent app={app} />
             <RightSidebar app={app} />

@@ -1,10 +1,92 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --page: #F8F9FA;  --surface: #FFFFFF;  --subtle: #F8F9FA;
+  --chip: #E9ECEF;  --line: #DEE2E6;
+  --fg: #212529;  --fg-2: #495057;  --fg-3: #5C636A;  --fg-4: #868E96;
+  --primary: #212529;  --primary-hover: #495057;  --sidebar: #212529;
+  --tint: rgba(33, 37, 41, 0.06);
+  --danger: #AE2E24;  --danger-bg: #FFECEB;  --danger-line: #F1B8B4;
+  --warn: #B45309;  --warn-bg: #FEF3C7;  --warn-line: #F5CD47;
+  --orange-fg: #A34A00;  --orange-bg: #FFEAD6;
+  --ok: #216E4E;  --ok-bg: #DCFFF1;
+  --focus-ring: #212529;
+
+  --row-danger: #FFEEEE;
+  --row-warn: #FFF9F0;
+  --row-orange: #FFF8F5;
+  --row-ok: #F4FBF7;
+}
+
+.dark {
+  color-scheme: dark;
+  --page: #101214;  --surface: #1A1D20;  --subtle: #212529;
+  --chip: #2B3035;  --line: #343A40;
+  --fg: #F1F3F5;  --fg-2: #CED4DA;  --fg-3: #ADB5BD;  --fg-4: #909AA3;
+  --primary: #2B3035;  --primary-hover: #3D444B;  --sidebar: #0B0D0F;
+  --tint: rgba(255, 255, 255, 0.08);
+  --danger: #FF8F86;  --danger-bg: rgba(201, 55, 44, 0.22);  --danger-line: rgba(255, 143, 134, 0.4);
+  --warn: #F5B14C;  --warn-bg: rgba(217, 119, 6, 0.2);  --warn-line: rgba(245, 177, 76, 0.45);
+  --orange-fg: #FFA45C;  --orange-bg: rgba(191, 87, 0, 0.26);
+  --ok: #4BCE97;  --ok-bg: rgba(31, 132, 90, 0.22);
+  --focus-ring: #F1F3F5;
+
+  --row-danger: rgba(201, 55, 44, 0.10);
+  --row-warn: rgba(217, 119, 6, 0.09);
+  --row-orange: rgba(191, 87, 0, 0.11);
+  --row-ok: rgba(31, 132, 90, 0.09);
+}
+
+@theme inline {
+  --color-page: var(--page);  --color-surface: var(--surface);  --color-subtle: var(--subtle);
+  --color-chip: var(--chip);  --color-line: var(--line);
+  --color-fg: var(--fg);  --color-fg-2: var(--fg-2);  --color-fg-3: var(--fg-3);  --color-fg-4: var(--fg-4);
+  --color-primary: var(--primary);  --color-primary-hover: var(--primary-hover);
+  --color-sidebar: var(--sidebar);  --color-tint: var(--tint);
+  --color-danger: var(--danger);  --color-danger-bg: var(--danger-bg);  --color-danger-line: var(--danger-line);
+  --color-warn: var(--warn);  --color-warn-bg: var(--warn-bg);  --color-warn-line: var(--warn-line);
+  --color-orange-fg: var(--orange-fg);  --color-orange-bg: var(--orange-bg);
+  --color-ok: var(--ok); --color-ok-bg: var(--ok-bg);
+
+  --color-row-danger: var(--row-danger);
+  --color-row-warn: var(--row-warn);
+  --color-row-orange: var(--row-orange);
+  --color-row-ok: var(--row-ok);
+}
+
+body {
+  background-color: var(--page);
+}
+
+/* Smooth fade while switching themes (class is added only during the toggle) */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    fill 300ms ease,
+    stroke 300ms ease,
+    box-shadow 300ms ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition: none !important;
+  }
+}
 
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
-  outline: 2px solid #212529;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -17,6 +99,10 @@ aside button:focus-visible {
   --sb-thumb: #ADB5BD;
   --sb-thumb-hover: #6C757D;
   --sb-track: transparent;
+}
+.dark .scrollbar-light {
+  --sb-thumb: #495057;
+  --sb-thumb-hover: #6C757D;
 }
 .scrollbar-on-orange {
   --sb-thumb: rgba(255, 255, 255, 0.7);

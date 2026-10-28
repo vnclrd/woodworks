@@ -3,8 +3,14 @@
 // Darkens the screen, spotlights one tool/feature at a time and shows a text bubble next to it.
 // It only needs `data-guide="..."` attributes on the elements it should point at (see guideSteps.ts).
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { GUIDE_STEPS, type GuideStep } from './guideSteps';
 
 type Props = {
@@ -20,7 +26,8 @@ const SPOT_PAD = 6; // breathing room around the highlighted element
 const GAP = 14; // distance between the highlight and the bubble
 const MARGIN = 16; // minimum distance from the screen edge
 
-const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), Math.max(min, max));
+const clamp = (v: number, min: number, max: number) =>
+  Math.min(Math.max(v, min), Math.max(min, max));
 
 // Returns the element only if it actually exists and is on screen
 // (e.g. the left sidebar is hidden on mobile, so its steps get skipped there).
@@ -29,16 +36,28 @@ function getVisibleTarget(target: string): HTMLElement | null {
   if (!el) return null;
   const r = el.getBoundingClientRect();
   const onScreen =
-    r.width > 0 && r.height > 0 && r.right > 0 && r.bottom > 0 && r.left < window.innerWidth && r.top < window.innerHeight;
+    r.width > 0 &&
+    r.height > 0 &&
+    r.right > 0 &&
+    r.bottom > 0 &&
+    r.left < window.innerWidth &&
+    r.top < window.innerHeight;
   return onScreen ? el : null;
 }
 
 export default function GuideTour({ onClose }: Props) {
   // Only keep steps whose target exists on this screen, so "Step X of Y" is always accurate
-  const [steps] = useState<GuideStep[]>(() => GUIDE_STEPS.filter((s) => !s.target || getVisibleTarget(s.target)));
+  const [steps] = useState<GuideStep[]>(() =>
+    GUIDE_STEPS.filter((s) => !s.target || getVisibleTarget(s.target)),
+  );
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
-  const [pos, setPos] = useState<Pos>({ top: 0, left: 0, placement: 'center', arrow: 0 });
+  const [pos, setPos] = useState<Pos>({
+    top: 0,
+    left: 0,
+    placement: 'center',
+    arrow: 0,
+  });
 
   const bubbleRef = useRef<HTMLDivElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
@@ -47,7 +66,10 @@ export default function GuideTour({ onClose }: Props) {
   const isFirst = index === 0;
   const isLast = index === steps.length - 1;
 
-  const next = useCallback(() => (isLast ? onClose() : setIndex((i) => i + 1)), [isLast, onClose]);
+  const next = useCallback(
+    () => (isLast ? onClose() : setIndex((i) => i + 1)),
+    [isLast, onClose],
+  );
   const back = useCallback(() => setIndex((i) => Math.max(0, i - 1)), []);
 
   // Measure the highlighted element
@@ -59,7 +81,11 @@ export default function GuideTour({ onClose }: Props) {
     }
     const r = el.getBoundingClientRect();
     setRect((prev) =>
-      prev && prev.top === r.top && prev.left === r.left && prev.width === r.width && prev.height === r.height
+      prev &&
+      prev.top === r.top &&
+      prev.left === r.left &&
+      prev.width === r.width &&
+      prev.height === r.height
         ? prev
         : { top: r.top, left: r.left, width: r.width, height: r.height },
     );
@@ -69,9 +95,16 @@ export default function GuideTour({ onClose }: Props) {
   // Measured again after the sidebar/tab animations finish.
   useEffect(() => {
     step.onEnter?.();
-    if (step.target) getVisibleTarget(step.target)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (step.target)
+      getVisibleTarget(step.target)?.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+      });
     measure();
-    const timers = [window.setTimeout(measure, 120), window.setTimeout(measure, 400)];
+    const timers = [
+      window.setTimeout(measure, 120),
+      window.setTimeout(measure, 400),
+    ];
     nextRef.current?.focus({ preventScroll: true });
     return () => timers.forEach(window.clearTimeout);
   }, [step, measure]);
@@ -107,7 +140,12 @@ export default function GuideTour({ onClose }: Props) {
     const vh = window.innerHeight;
 
     if (!rect) {
-      setPos({ top: (vh - h) / 2, left: (vw - w) / 2, placement: 'center', arrow: 0 });
+      setPos({
+        top: (vh - h) / 2,
+        left: (vw - w) / 2,
+        placement: 'center',
+        arrow: 0,
+      });
       return;
     }
 
@@ -123,34 +161,62 @@ export default function GuideTour({ onClose }: Props) {
 
     if (vh - b - MARGIN >= h + GAP) {
       const left = horizontal();
-      setPos({ top: b + GAP, left, placement: 'bottom', arrow: clamp(cx - left, 20, w - 20) });
+      setPos({
+        top: b + GAP,
+        left,
+        placement: 'bottom',
+        arrow: clamp(cx - left, 20, w - 20),
+      });
     } else if (t - MARGIN >= h + GAP) {
       const left = horizontal();
-      setPos({ top: t - GAP - h, left, placement: 'top', arrow: clamp(cx - left, 20, w - 20) });
+      setPos({
+        top: t - GAP - h,
+        left,
+        placement: 'top',
+        arrow: clamp(cx - left, 20, w - 20),
+      });
     } else if (vw - r - MARGIN >= w + GAP) {
       const top = vertical();
-      setPos({ top, left: r + GAP, placement: 'right', arrow: clamp(cy - top, 20, h - 20) });
+      setPos({
+        top,
+        left: r + GAP,
+        placement: 'right',
+        arrow: clamp(cy - top, 20, h - 20),
+      });
     } else if (l - MARGIN >= w + GAP) {
       const top = vertical();
-      setPos({ top, left: l - GAP - w, placement: 'left', arrow: clamp(cy - top, 20, h - 20) });
+      setPos({
+        top,
+        left: l - GAP - w,
+        placement: 'left',
+        arrow: clamp(cy - top, 20, h - 20),
+      });
     } else {
       // Target is huge (e.g. the task list): show the bubble over its middle
-      setPos({ top: vertical(), left: horizontal(), placement: 'center', arrow: 0 });
+      setPos({
+        top: vertical(),
+        left: horizontal(),
+        placement: 'center',
+        arrow: 0,
+      });
     }
   }, [rect, index]);
 
-  const arrowBase = 'absolute w-3 h-3 bg-white rotate-45 border-[#DEE2E6]';
+  const arrowBase = 'absolute w-3 h-3 bg-surface rotate-45 border-line';
 
   return (
-    <div className="fixed inset-0" style={{ zIndex: 9999 }}>
+    <div className='fixed inset-0' style={{ zIndex: 9999 }}>
       {/* Click blocker: stops clicks reaching the app while the guide is open */}
-      <div className={`absolute inset-0 ${rect ? '' : 'bg-[#212529]/80'}`} onClick={(e) => e.stopPropagation()} />
+      <div
+        className={`absolute inset-0 ${rect ? '' : 'bg-primary/80'}`}
+        onClick={(e) => e.stopPropagation()}
+      />
 
       {/* Spotlight: the huge box-shadow is what darkens everything except the highlighted element */}
       {rect && (
         <div
-          aria-hidden="true"
-          className="absolute rounded-md ring-2 ring-white/90 pointer-events-none transition-all duration-200 motion-reduce:transition-none"
+          aria-hidden='true'
+          className='absolute rounded-md ring-2 ring-white/90 pointer-events-none transition-all duration-200 motion-reduce:transition-none'
           style={{
             top: rect.top - SPOT_PAD,
             left: rect.left - SPOT_PAD,
@@ -164,77 +230,104 @@ export default function GuideTour({ onClose }: Props) {
       {/* Text bubble */}
       <div
         ref={bubbleRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="guide-title"
-        aria-describedby="guide-body"
-        className="absolute rounded-md bg-white text-[#212529] border border-[#DEE2E6] shadow-[0_8px_12px_#21252926,0_0_1px_#2125294F] p-4 transition-[top,left] duration-200 motion-reduce:transition-none"
-        style={{ top: pos.top, left: pos.left, width: 'min(340px, calc(100vw - 32px))' }}
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='guide-title'
+        aria-describedby='guide-body'
+        className='absolute rounded-md bg-surface text-fg border border-line shadow-[0_8px_12px_#21252926,0_0_1px_#2125294F] p-4 transition-[top,left] duration-200 motion-reduce:transition-none'
+        style={{
+          top: pos.top,
+          left: pos.left,
+          width: 'min(340px, calc(100vw - 32px))',
+        }}
       >
-        {pos.placement === 'bottom' && <span className={`${arrowBase} -top-1.5 border-l border-t`} style={{ left: pos.arrow - 6 }} />}
-        {pos.placement === 'top' && <span className={`${arrowBase} -bottom-1.5 border-r border-b`} style={{ left: pos.arrow - 6 }} />}
-        {pos.placement === 'right' && <span className={`${arrowBase} -left-1.5 border-l border-b`} style={{ top: pos.arrow - 6 }} />}
-        {pos.placement === 'left' && <span className={`${arrowBase} -right-1.5 border-r border-t`} style={{ top: pos.arrow - 6 }} />}
+        {pos.placement === 'bottom' && (
+          <span
+            className={`${arrowBase} -top-1.5 border-l border-t`}
+            style={{ left: pos.arrow - 6 }}
+          />
+        )}
+        {pos.placement === 'top' && (
+          <span
+            className={`${arrowBase} -bottom-1.5 border-r border-b`}
+            style={{ left: pos.arrow - 6 }}
+          />
+        )}
+        {pos.placement === 'right' && (
+          <span
+            className={`${arrowBase} -left-1.5 border-l border-b`}
+            style={{ top: pos.arrow - 6 }}
+          />
+        )}
+        {pos.placement === 'left' && (
+          <span
+            className={`${arrowBase} -right-1.5 border-r border-t`}
+            style={{ top: pos.arrow - 6 }}
+          />
+        )}
 
-        <div className="flex items-start justify-between gap-3 mb-1.5">
-          <h2 id="guide-title" className="text-sm font-semibold leading-snug">
+        <div className='flex items-start justify-between gap-3 mb-1.5'>
+          <h2 id='guide-title' className='text-sm font-semibold leading-snug'>
             {step.title}
           </h2>
           <button
-            type="button"
+            type='button'
             onClick={onClose}
-            aria-label="Close guide"
-            className="shrink-0 -mt-1 -mr-1 p-1.5 rounded text-[#495057] hover:bg-[#2125290F] cursor-pointer"
+            aria-label='Close guide'
+            className='shrink-0 -mt-1 -mr-1 p-1.5 rounded text-fg-2 hover:bg-tint cursor-pointer'
           >
-            <X className="w-4 h-4" />
+            <X className='w-4 h-4' />
           </button>
         </div>
 
-        <p id="guide-body" className="text-sm leading-relaxed text-[#495057]">
+        <p id='guide-body' className='text-sm leading-relaxed text-fg-2'>
           {step.body}
         </p>
 
         {/* Progress bar */}
-        <div className="mt-4 h-1 rounded-full bg-[#E9ECEF] overflow-hidden" aria-hidden="true">
+        <div
+          className='mt-4 h-1 rounded-full bg-chip overflow-hidden'
+          aria-hidden='true'
+        >
           <div
-            className="h-full bg-[#BF5700] transition-[width] duration-200 motion-reduce:transition-none"
+            className='h-full bg-[#BF5700] transition-[width] duration-200 motion-reduce:transition-none'
             style={{ width: `${((index + 1) / steps.length) * 100}%` }}
           />
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <span className="text-xs text-[#5C636A] tabular-nums">
+        <div className='mt-3 flex items-center justify-between gap-2'>
+          <span className='text-xs text-fg-3 tabular-nums'>
             {index + 1} of {steps.length}
           </span>
 
-          <div className="flex items-center gap-1.5">
+          <div className='flex items-center gap-1.5'>
             {!isLast && (
               <button
-                type="button"
+                type='button'
                 onClick={onClose}
-                className="h-8 px-2.5 rounded text-xs font-medium text-[#495057] hover:bg-[#2125290F] cursor-pointer"
+                className='h-8 px-2.5 rounded text-xs font-medium text-fg-2 hover:bg-tint cursor-pointer'
               >
                 Skip
               </button>
             )}
             {!isFirst && (
               <button
-                type="button"
+                type='button'
                 onClick={back}
-                className="h-8 px-2 flex items-center gap-0.5 rounded text-xs font-medium text-[#495057] hover:bg-[#2125290F] cursor-pointer"
+                className='h-8 px-2 flex items-center gap-0.5 rounded text-xs font-medium text-fg-2 hover:bg-tint cursor-pointer'
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className='w-3.5 h-3.5' />
                 Back
               </button>
             )}
             <button
               ref={nextRef}
-              type="button"
+              type='button'
               onClick={next}
-              className="h-8 px-3 flex items-center gap-1 rounded bg-[#212529] hover:bg-[#495057] text-white text-xs font-medium transition-colors cursor-pointer"
+              className='h-8 px-3 flex items-center gap-1 rounded bg-primary hover:bg-primary-hover text-white text-xs font-medium transition-colors cursor-pointer'
             >
               {isLast ? 'Finish' : isFirst ? "Let's go" : 'Next'}
-              {!isLast && <ChevronRight className="w-3.5 h-3.5" />}
+              {!isLast && <ChevronRight className='w-3.5 h-3.5' />}
             </button>
           </div>
         </div>

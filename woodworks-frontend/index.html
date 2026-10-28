@@ -6,6 +6,15 @@
     <!-- Optional: For Apple / Mobile Home Screen Shortcuts -->
     <link rel="apple-touch-icon" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('woodworks_theme');
+          var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
     <title>WoodWorks - Personal Task Management System</title>
   </head>
   <body>

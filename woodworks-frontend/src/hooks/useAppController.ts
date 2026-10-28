@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
 import { CheckSquare, Clock, Flag, ListTodo } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import {
   API_BASE_URL,
   BASE_URL,
@@ -8,15 +8,19 @@ import {
   GROUPS_KEY,
   isDemoMode,
   REMEMBERED_EMAIL_KEY,
-  TASKS_CACHE_KEY,
   TASK_GROUP_ASSIGNMENTS_KEY,
+  TASKS_CACHE_KEY,
   TOKEN_KEY,
 } from '../config/appConfig';
+import {
+  createGroupApi,
+  deleteGroupApi,
+  fetchGroupsApi,
+} from '../services/woodworksApi';
 import type { DailyTask, Task, TaskGroup, Toast } from '../types/task';
 import { getTodayKey, loadJSON } from '../utils/storage';
 import { mergeLocalGroupAssignments } from '../utils/taskGroups';
 import { useMediaQuery } from './useMediaQuery';
-import { fetchGroupsApi, createGroupApi, deleteGroupApi } from '../services/woodworksApi';
 
 const USER_EMAIL_KEY = 'woodworks_user_email';
 
@@ -27,7 +31,9 @@ const avatarKey = (email: string) => `woodworks_avatar:${email.toLowerCase()}`;
 function emailFromToken(token: string | null): string | null {
   if (!token) return null;
   try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const payload = JSON.parse(
+      atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')),
+    );
     const value = payload.email ?? payload.sub;
     return typeof value === 'string' && value.includes('@') ? value : null;
   } catch {
@@ -37,14 +43,17 @@ function emailFromToken(token: string | null): string | null {
 
 export function useAppController() {
   const [token, setToken] = useState<string | null>(
-    localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
+    localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY),
   );
   const [userEmail, setUserEmail] = useState<string | null>(
-    () => localStorage.getItem(USER_EMAIL_KEY) || sessionStorage.getItem(USER_EMAIL_KEY) || emailFromToken(token)
+    () =>
+      localStorage.getItem(USER_EMAIL_KEY) ||
+      sessionStorage.getItem(USER_EMAIL_KEY) ||
+      emailFromToken(token),
   );
 
-  const [avatarId, setAvatarId] = useState<string | null>(
-    () => (userEmail ? localStorage.getItem(avatarKey(userEmail)) : null)
+  const [avatarId, setAvatarId] = useState<string | null>(() =>
+    userEmail ? localStorage.getItem(avatarKey(userEmail)) : null,
   );
 
   useEffect(() => {
@@ -67,19 +76,21 @@ export function useAppController() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ email: userEmail, avatar: id })
+          body: JSON.stringify({ email: userEmail, avatar: id }),
         });
       } catch (err) {
         console.warn('Could not sync avatar change to backend.', err);
       }
     }
   };
-  
+
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
-  
-  const [emailInput, setEmailInput] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) || '');
+
+  const [emailInput, setEmailInput] = useState(
+    () => localStorage.getItem(REMEMBERED_EMAIL_KEY) || '',
+  );
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -96,7 +107,9 @@ export function useAppController() {
       return [];
     }
   });
-  const [groups, setGroups] = useState<TaskGroup[]>(() => loadJSON<TaskGroup[]>(GROUPS_KEY, []));
+  const [groups, setGroups] = useState<TaskGroup[]>(() =>
+    loadJSON<TaskGroup[]>(GROUPS_KEY, []),
+  );
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [groupNameInput, setGroupNameInput] = useState('');
@@ -105,9 +118,11 @@ export function useAppController() {
   const [isAccountManagerOpen, setIsAccountManagerOpen] = useState(false);
   const [currentPasswordInput, setCurrentPasswordInput] = useState('');
   const [newAccountPasswordInput, setNewAccountPasswordInput] = useState('');
-  const [confirmAccountPasswordInput, setConfirmAccountPasswordInput] = useState('');
+  const [confirmAccountPasswordInput, setConfirmAccountPasswordInput] =
+    useState('');
   const [showAccountPasswords, setShowAccountPasswords] = useState(false);
-  const [isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen] = useState(false);
+  const [isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen] =
+    useState(false);
   const [deleteAccountPhrase, setDeleteAccountPhrase] = useState('');
 
   const [filter, setFilter] = useState('ALL');
@@ -120,7 +135,15 @@ export function useAppController() {
   const [loading, setLoading] = useState<boolean>(tasks.length === 0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentTask, setCurrentTask] = useState<Task>({ id: null, title: '', description: '', completed: false, pinned: false, urgent: false, groupId: null });
+  const [currentTask, setCurrentTask] = useState<Task>({
+    id: null,
+    title: '',
+    description: '',
+    completed: false,
+    pinned: false,
+    urgent: false,
+    groupId: null,
+  });
   const [isEditing, setIsEditing] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -132,12 +155,23 @@ export function useAppController() {
   const [dailyTitle, setDailyTitle] = useState('');
   const [today, setToday] = useState(getTodayKey());
 
-  const [activities, setActivities] = useState<Array<{ id: number; text: string; time: string }>>(() => {
+  const [activities, setActivities] = useState<
+    Array<{ id: number; text: string; time: string }>
+  >(() => {
     try {
       const cached = localStorage.getItem('woodworks_activities');
-      return cached ? JSON.parse(cached) : [
-        { id: 1, text: 'Initialized WoodWorks session', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-      ];
+      return cached
+        ? JSON.parse(cached)
+        : [
+            {
+              id: 1,
+              text: 'Initialized WoodWorks session',
+              time: new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+            },
+          ];
     } catch {
       return [];
     }
@@ -151,9 +185,12 @@ export function useAppController() {
     const newActivity = {
       id: Date.now(),
       text,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
     };
-    setActivities(prev => [newActivity, ...prev.slice(0, 49)]); // Keep last 50 activities
+    setActivities((prev) => [newActivity, ...prev.slice(0, 49)]); // Keep last 50 activities
   };
 
   const [mobilePanel, setMobilePanel] = useState<'tasks' | 'daily'>('tasks');
@@ -169,25 +206,37 @@ export function useAppController() {
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
   const hasRoomForBothCardsWithChat = useMediaQuery('(min-width: 1440px)');
   const hasRoomForBothCardsWithRail = useMediaQuery('(min-width: 1240px)');
-  const showToast = (message: string, type: Toast['type'] = 'success') => setToast({ message, type });
+  const showToast = (message: string, type: Toast['type'] = 'success') =>
+    setToast({ message, type });
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
-  const activeTask = tasks.find(t => t.id === activeTaskId) || null;
+  const activeTask = tasks.find((t) => t.id === activeTaskId) || null;
 
-  const saveGroupAssignment = (taskId: number | null, groupId: string | null | undefined) => {
+  const saveGroupAssignment = (
+    taskId: number | null,
+    groupId: string | null | undefined,
+  ) => {
     if (taskId === null) return;
-    const assignments = loadJSON<Record<string, string>>(TASK_GROUP_ASSIGNMENTS_KEY, {});
+    const assignments = loadJSON<Record<string, string>>(
+      TASK_GROUP_ASSIGNMENTS_KEY,
+      {},
+    );
     if (groupId) assignments[String(taskId)] = groupId;
     else delete assignments[String(taskId)];
-    localStorage.setItem(TASK_GROUP_ASSIGNMENTS_KEY, JSON.stringify(assignments));
+    localStorage.setItem(
+      TASK_GROUP_ASSIGNMENTS_KEY,
+      JSON.stringify(assignments),
+    );
   };
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = groupNameInput.trim();
     if (!name) return;
-    if (groups.some((group) => group.name.toLowerCase() === name.toLowerCase())) {
+    if (
+      groups.some((group) => group.name.toLowerCase() === name.toLowerCase())
+    ) {
       showToast('A group with that name already exists.', 'error');
       return;
     }
@@ -222,9 +271,15 @@ export function useAppController() {
 
   const handleDeleteGroup = async (groupId: string | number) => {
     if (isDemoMode) {
-      setGroups(groups.filter(g => g.id !== groupId));
+      setGroups(groups.filter((g) => g.id !== groupId));
       // Unassign tasks locally in demo mode
-      setTasks(tasks.map(t => String(t.groupId) === String(groupId) ? { ...t, groupId: null, groupName: null } : t));
+      setTasks(
+        tasks.map((t) =>
+          String(t.groupId) === String(groupId)
+            ? { ...t, groupId: null, groupName: null }
+            : t,
+        ),
+      );
       setSelectedGroupId(null);
       showToast('Group deleted. Tasks moved to "No group".', 'deletion');
       return;
@@ -232,7 +287,7 @@ export function useAppController() {
 
     try {
       await deleteGroupApi(token!, Number(groupId));
-      setGroups(prev => prev.filter(g => String(g.id) !== String(groupId)));
+      setGroups((prev) => prev.filter((g) => String(g.id) !== String(groupId)));
       setSelectedGroupId(null);
       fetchTasks(true);
       showToast('Group deleted. Tasks moved to "No group".', 'deletion');
@@ -244,7 +299,11 @@ export function useAppController() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentPasswordInput || !newAccountPasswordInput || !confirmAccountPasswordInput) {
+    if (
+      !currentPasswordInput ||
+      !newAccountPasswordInput ||
+      !confirmAccountPasswordInput
+    ) {
       showToast('Complete all password fields first.', 'error');
       return;
     }
@@ -266,20 +325,24 @@ export function useAppController() {
     }
 
     try {
-      const response = await fetch(`${BASE_URL.replace(/\/$/, '')}/api/users/password`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+      const response = await fetch(
+        `${BASE_URL.replace(/\/$/, '')}/api/users/password`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            currentPassword: currentPasswordInput,
+            newPassword: newAccountPasswordInput,
+          }),
         },
-        body: JSON.stringify({
-          currentPassword: currentPasswordInput,
-          newPassword: newAccountPasswordInput
-        })
-      });
+      );
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to change password');
+      if (!response.ok)
+        throw new Error(data.error || 'Failed to change password');
 
       setCurrentPasswordInput('');
       setNewAccountPasswordInput('');
@@ -304,19 +367,23 @@ export function useAppController() {
     }
 
     try {
-      const response = await fetch(`${BASE_URL.replace(/\/$/, '')}/api/users/me`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await fetch(
+        `${BASE_URL.replace(/\/$/, '')}/api/users/me`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
 
       let data: any = {};
       try {
         data = await response.json();
       } catch {}
 
-      if (!response.ok) throw new Error(data.error || 'Failed to delete account');
+      if (!response.ok)
+        throw new Error(data.error || 'Failed to delete account');
 
       setIsDeleteAccountConfirmOpen(false);
       setIsAccountManagerOpen(false);
@@ -346,15 +413,22 @@ export function useAppController() {
       return;
     }
 
-    const endpoint = authView === 'login' ? '/api/auth/login' : '/api/auth/register';
+    const endpoint =
+      authView === 'login' ? '/api/auth/login' : '/api/auth/register';
     setIsAuthLoading(true);
 
     try {
-      const response = await fetch(`${BASE_URL.replace(/\/$/, '')}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailInput.trim(), password: passwordInput })
-      });
+      const response = await fetch(
+        `${BASE_URL.replace(/\/$/, '')}${endpoint}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: emailInput.trim(),
+            password: passwordInput,
+          }),
+        },
+      );
 
       let data: any = {};
       try {
@@ -362,14 +436,19 @@ export function useAppController() {
       } catch {}
 
       if (!response.ok) {
-        throw new Error(data.error || 'Authentication failed. Please try again.');
+        throw new Error(
+          data.error || 'Authentication failed. Please try again.',
+        );
       }
 
       const persist = authView === 'register' || rememberMe;
       (persist ? localStorage : sessionStorage).setItem(TOKEN_KEY, data.token);
       (persist ? sessionStorage : localStorage).removeItem(TOKEN_KEY);
-      (persist ? localStorage : sessionStorage).setItem(USER_EMAIL_KEY, emailInput.trim());
-      (persist ? sessionStorage : localStorage).removeItem(USER_EMAIL_KEY); 
+      (persist ? localStorage : sessionStorage).setItem(
+        USER_EMAIL_KEY,
+        emailInput.trim(),
+      );
+      (persist ? sessionStorage : localStorage).removeItem(USER_EMAIL_KEY);
 
       if (rememberMe) {
         localStorage.setItem(REMEMBERED_EMAIL_KEY, emailInput.trim());
@@ -393,10 +472,16 @@ export function useAppController() {
       setShowPassword(false);
       setIsSidebarOpen(false);
       setIsSidebarCollapsed(true);
-      showToast(authView === 'login' ? 'Logged in successfully' : 'Account created successfully');
+      showToast(
+        authView === 'login'
+          ? 'Logged in successfully'
+          : 'Account created successfully',
+      );
     } catch (err: any) {
       if (err instanceof TypeError) {
-        setAuthError("Couldn't reach the server. Check your connection and try again.");
+        setAuthError(
+          "Couldn't reach the server. Check your connection and try again.",
+        );
       } else {
         setAuthError(err.message);
       }
@@ -432,8 +517,10 @@ export function useAppController() {
       fetchDailyTasks();
       if (!isDemoMode && token) {
         fetchGroupsApi(token)
-          .then(data => setGroups(data))
-          .catch(err => console.warn('Could not fetch groups from backend.', err));
+          .then((data) => setGroups(data))
+          .catch((err) =>
+            console.warn('Could not fetch groups from backend.', err),
+          );
       }
     }
   }, [token]);
@@ -459,7 +546,14 @@ export function useAppController() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const fetchTasks = async (isBackground = false, pendingGroupAssignment?: { title: string; groupId: string | null; previousTaskIds: Array<number | null> }) => {
+  const fetchTasks = async (
+    isBackground = false,
+    pendingGroupAssignment?: {
+      title: string;
+      groupId: string | null;
+      previousTaskIds: Array<number | null>;
+    },
+  ) => {
     if (!isBackground && tasks.length === 0) {
       setLoading(true);
     }
@@ -467,11 +561,34 @@ export function useAppController() {
     if (isDemoMode) {
       setTimeout(() => {
         const mockTasks = [
-          { id: 1, title: 'Review Q4 Cloud Architecture', description: 'Analyze GCP Cloud Run scaling parameters', completed: true, pinned: false, urgent: false },
-          { id: 2, title: 'Implement Sidebar Features', description: 'Draft each design of the feature', completed: false, pinned: true, urgent: false },
-          { id: 3, title: 'Optimize PostgreSQL Queries', description: 'Review Neon connection pooler performance', completed: false, pinned: false, urgent: true }
+          {
+            id: 1,
+            title: 'Review Q4 Cloud Architecture',
+            description: 'Analyze GCP Cloud Run scaling parameters',
+            completed: true,
+            pinned: false,
+            urgent: false,
+          },
+          {
+            id: 2,
+            title: 'Implement Sidebar Features',
+            description: 'Draft each design of the feature',
+            completed: false,
+            pinned: true,
+            urgent: false,
+          },
+          {
+            id: 3,
+            title: 'Optimize PostgreSQL Queries',
+            description: 'Review Neon connection pooler performance',
+            completed: false,
+            pinned: false,
+            urgent: true,
+          },
         ];
-        setTasks(mergeLocalGroupAssignments(mockTasks, TASK_GROUP_ASSIGNMENTS_KEY));
+        setTasks(
+          mergeLocalGroupAssignments(mockTasks, TASK_GROUP_ASSIGNMENTS_KEY),
+        );
         setIsBackendOnline(true);
         setLoading(false);
       }, 300);
@@ -480,7 +597,7 @@ export function useAppController() {
 
     try {
       const response = await fetch(API_BASE_URL, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.status === 401 || response.status === 403) {
@@ -493,22 +610,37 @@ export function useAppController() {
       const data = await response.json();
       // Map task.groupName to task.groupId using the current groups list
       const mappedData = data.map((task: any) => {
-        const matchedGroup = groups.find(g => g.name === task.groupName);
+        const matchedGroup = groups.find((g) => g.name === task.groupName);
         return {
           ...task,
-          groupId: matchedGroup ? matchedGroup.id : (task.groupId || null)
+          groupId: matchedGroup ? matchedGroup.id : task.groupId || null,
         };
       });
-      let hydratedTasks = mergeLocalGroupAssignments(mappedData, TASK_GROUP_ASSIGNMENTS_KEY);
+      let hydratedTasks = mergeLocalGroupAssignments(
+        mappedData,
+        TASK_GROUP_ASSIGNMENTS_KEY,
+      );
       if (pendingGroupAssignment) {
         const newlyCreatedMatch = hydratedTasks
-          .filter((task) => task.title === pendingGroupAssignment.title && !pendingGroupAssignment.previousTaskIds.includes(task.id))
+          .filter(
+            (task) =>
+              task.title === pendingGroupAssignment.title &&
+              !pendingGroupAssignment.previousTaskIds.includes(task.id),
+          )
           .sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
-        if (newlyCreatedMatch?.id !== null && newlyCreatedMatch?.id !== undefined) {
-          saveGroupAssignment(newlyCreatedMatch.id, pendingGroupAssignment.groupId);
-          hydratedTasks = hydratedTasks.map((task) => task.id === newlyCreatedMatch.id
-            ? { ...task, groupId: pendingGroupAssignment.groupId }
-            : task);
+        if (
+          newlyCreatedMatch?.id !== null &&
+          newlyCreatedMatch?.id !== undefined
+        ) {
+          saveGroupAssignment(
+            newlyCreatedMatch.id,
+            pendingGroupAssignment.groupId,
+          );
+          hydratedTasks = hydratedTasks.map((task) =>
+            task.id === newlyCreatedMatch.id
+              ? { ...task, groupId: pendingGroupAssignment.groupId }
+              : task,
+          );
         }
       }
       setTasks(hydratedTasks);
@@ -516,11 +648,37 @@ export function useAppController() {
     } catch (error) {
       setIsBackendOnline(false);
       if (tasks.length === 0) {
-        setTasks(mergeLocalGroupAssignments([
-          { id: 1, title: 'Configure PostgreSQL Container', description: 'Docker compose setup complete', completed: true, pinned: false, urgent: false },
-          { id: 2, title: 'Build Spring Boot REST API', description: 'Implement controllers, services, and DTOs', completed: true, pinned: false, urgent: false },
-          { id: 3, title: 'Connect React Frontend', description: 'Wire up UI with Tailwind CSS', completed: false, pinned: false, urgent: false }
-        ], TASK_GROUP_ASSIGNMENTS_KEY));
+        setTasks(
+          mergeLocalGroupAssignments(
+            [
+              {
+                id: 1,
+                title: 'Configure PostgreSQL Container',
+                description: 'Docker compose setup complete',
+                completed: true,
+                pinned: false,
+                urgent: false,
+              },
+              {
+                id: 2,
+                title: 'Build Spring Boot REST API',
+                description: 'Implement controllers, services, and DTOs',
+                completed: true,
+                pinned: false,
+                urgent: false,
+              },
+              {
+                id: 3,
+                title: 'Connect React Frontend',
+                description: 'Wire up UI with Tailwind CSS',
+                completed: false,
+                pinned: false,
+                urgent: false,
+              },
+            ],
+            TASK_GROUP_ASSIGNMENTS_KEY,
+          ),
+        );
       }
     } finally {
       setLoading(false);
@@ -536,7 +694,7 @@ export function useAppController() {
 
     try {
       const response = await fetch(DAILY_API_BASE_URL, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
         const data = await response.json();
@@ -553,7 +711,10 @@ export function useAppController() {
     if (!title) return;
 
     if (isDemoMode) {
-      const updated = [...dailyTasks, { id: Date.now(), title, lastCompleted: null }];
+      const updated = [
+        ...dailyTasks,
+        { id: Date.now(), title, lastCompleted: null },
+      ];
       setDailyTasks(updated);
       localStorage.setItem(DAILY_KEY, JSON.stringify(updated));
       setDailyTitle('');
@@ -564,11 +725,11 @@ export function useAppController() {
     try {
       const response = await fetch(DAILY_API_BASE_URL, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ title, lastCompleted: null })
+        body: JSON.stringify({ title, lastCompleted: null }),
       });
 
       if (response.ok) {
@@ -588,7 +749,9 @@ export function useAppController() {
     const updatedTask = { ...daily, lastCompleted: newLastCompleted };
 
     if (isDemoMode) {
-      const updatedList = dailyTasks.map(d => d.id === daily.id ? updatedTask : d);
+      const updatedList = dailyTasks.map((d) =>
+        d.id === daily.id ? updatedTask : d,
+      );
       setDailyTasks(updatedList);
       localStorage.setItem(DAILY_KEY, JSON.stringify(updatedList));
       return;
@@ -597,15 +760,17 @@ export function useAppController() {
     try {
       const response = await fetch(`${DAILY_API_BASE_URL}/${daily.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedTask)
+        body: JSON.stringify(updatedTask),
       });
 
       if (response.ok) {
-        setDailyTasks(prev => prev.map(d => d.id === daily.id ? updatedTask : d));
+        setDailyTasks((prev) =>
+          prev.map((d) => (d.id === daily.id ? updatedTask : d)),
+        );
       } else {
         showToast("Couldn't update daily task.", 'error');
       }
@@ -616,7 +781,7 @@ export function useAppController() {
 
   const deleteDaily = async (id: number) => {
     if (isDemoMode) {
-      const updatedList = dailyTasks.filter(d => d.id !== id);
+      const updatedList = dailyTasks.filter((d) => d.id !== id);
       setDailyTasks(updatedList);
       localStorage.setItem(DAILY_KEY, JSON.stringify(updatedList));
       showToast('Daily task removed (Demo Mode)');
@@ -626,11 +791,11 @@ export function useAppController() {
     try {
       const response = await fetch(`${DAILY_API_BASE_URL}/${id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
-        setDailyTasks(prev => prev.filter(d => d.id !== id));
+        setDailyTasks((prev) => prev.filter((d) => d.id !== id));
         showToast('Daily task removed');
       } else {
         showToast("Couldn't delete daily task.", 'error');
@@ -646,13 +811,22 @@ export function useAppController() {
 
     if (isDemoMode) {
       if (isEditing) {
-        setTasks(tasks.map(t => t.id === currentTask.id ? currentTask : t));
+        setTasks(tasks.map((t) => (t.id === currentTask.id ? currentTask : t)));
         saveGroupAssignment(currentTask.id, currentTask.groupId);
       } else {
-        setTasks([...tasks, { ...currentTask, id: Date.now(), groupId: currentTask.groupId ?? null }]);
+        setTasks([
+          ...tasks,
+          {
+            ...currentTask,
+            id: Date.now(),
+            groupId: currentTask.groupId ?? null,
+          },
+        ]);
       }
       closeModal();
-      showToast(isEditing ? 'Task updated (Demo Mode)' : 'Task created (Demo Mode)');
+      showToast(
+        isEditing ? 'Task updated (Demo Mode)' : 'Task created (Demo Mode)',
+      );
       return;
     }
 
@@ -660,16 +834,20 @@ export function useAppController() {
       setIsSaving(true);
       try {
         const method = isEditing ? 'PUT' : 'POST';
-        const url = isEditing ? `${API_BASE_URL}/${currentTask.id}` : API_BASE_URL;
+        const url = isEditing
+          ? `${API_BASE_URL}/${currentTask.id}`
+          : API_BASE_URL;
 
-        const matchedGroup = groups.find(g => String(g.id) === String(currentTask.groupId));
+        const matchedGroup = groups.find(
+          (g) => String(g.id) === String(currentTask.groupId),
+        );
         const groupNameValue = matchedGroup ? matchedGroup.name : null;
 
         const response = await fetch(url, {
           method,
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             title: currentTask.title,
@@ -677,44 +855,72 @@ export function useAppController() {
             completed: currentTask.completed,
             pinned: currentTask.pinned ?? false,
             urgent: currentTask.urgent ?? false,
-            groupName: groupNameValue
-          })
+            groupName: groupNameValue,
+          }),
         });
 
         if (response.ok) {
           let savedTask: any = null;
-          try { savedTask = await response.clone().json(); } catch {}
+          try {
+            savedTask = await response.clone().json();
+          } catch {}
           const returnedId = isEditing
             ? currentTask.id
-            : (savedTask?.id ?? savedTask?.task?.id ?? savedTask?.data?.id ?? null);
-          if (returnedId !== null && returnedId !== undefined && Number.isFinite(Number(returnedId))) {
+            : (savedTask?.id ??
+              savedTask?.task?.id ??
+              savedTask?.data?.id ??
+              null);
+          if (
+            returnedId !== null &&
+            returnedId !== undefined &&
+            Number.isFinite(Number(returnedId))
+          ) {
             saveGroupAssignment(Number(returnedId), currentTask.groupId);
           }
-          fetchTasks(true, !isEditing ? {
-            title: currentTask.title,
-            groupId: currentTask.groupId ?? null,
-            previousTaskIds: tasks.map((task) => task.id),
-          } : undefined);
+          fetchTasks(
+            true,
+            !isEditing
+              ? {
+                  title: currentTask.title,
+                  groupId: currentTask.groupId ?? null,
+                  previousTaskIds: tasks.map((task) => task.id),
+                }
+              : undefined,
+          );
           closeModal();
           showToast(isEditing ? 'Task updated' : 'Task created');
         } else {
           showToast("Couldn't save the task. Try again.", 'error');
         }
       } catch (err) {
-        showToast("Couldn't reach the server. Your task wasn't saved.", 'error');
+        showToast(
+          "Couldn't reach the server. Your task wasn't saved.",
+          'error',
+        );
       } finally {
         setIsSaving(false);
       }
     } else {
       if (isEditing) {
-        setTasks(tasks.map(t => t.id === currentTask.id ? currentTask : t));
+        setTasks(tasks.map((t) => (t.id === currentTask.id ? currentTask : t)));
         saveGroupAssignment(currentTask.id, currentTask.groupId);
       } else {
-        setTasks([...tasks, { ...currentTask, id: Date.now(), groupId: currentTask.groupId ?? null }]);
+        setTasks([
+          ...tasks,
+          {
+            ...currentTask,
+            id: Date.now(),
+            groupId: currentTask.groupId ?? null,
+          },
+        ]);
       }
       closeModal();
       showToast(isEditing ? 'Task updated' : 'Task created');
-      logActivity(isEditing ? `Updated task "${currentTask.title}"` : `Created task "${currentTask.title}"`);
+      logActivity(
+        isEditing
+          ? `Updated task "${currentTask.title}"`
+          : `Created task "${currentTask.title}"`,
+      );
     }
   };
 
@@ -724,7 +930,18 @@ export function useAppController() {
     if (!title) return;
 
     if (isDemoMode) {
-      setTasks([...tasks, { id: Date.now(), title, description: '', completed: false, pinned: false, urgent: false, groupId: selectedGroupId }]);
+      setTasks([
+        ...tasks,
+        {
+          id: Date.now(),
+          title,
+          description: '',
+          completed: false,
+          pinned: false,
+          urgent: false,
+          groupId: selectedGroupId,
+        },
+      ]);
       setQuickTitle('');
       showToast('Task created (Demo Mode)');
       return;
@@ -732,29 +949,38 @@ export function useAppController() {
 
     if (isBackendOnline) {
       try {
-        const activeGroup = groups.find(g => String(g.id) === String(selectedGroupId));
+        const activeGroup = groups.find(
+          (g) => String(g.id) === String(selectedGroupId),
+        );
         const groupNameValue = activeGroup ? activeGroup.name : null;
 
         const response = await fetch(API_BASE_URL, {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ 
-            title, 
-            description: '', 
-            completed: false, 
-            pinned: false, 
-            urgent: false, 
-            groupName: groupNameValue 
-          })
+          body: JSON.stringify({
+            title,
+            description: '',
+            completed: false,
+            pinned: false,
+            urgent: false,
+            groupName: groupNameValue,
+          }),
         });
         if (response.ok) {
           let savedTask: any = null;
-          try { savedTask = await response.clone().json(); } catch {}
-          const returnedId = savedTask?.id ?? savedTask?.task?.id ?? savedTask?.data?.id ?? null;
-          if (returnedId !== null && returnedId !== undefined && Number.isFinite(Number(returnedId))) {
+          try {
+            savedTask = await response.clone().json();
+          } catch {}
+          const returnedId =
+            savedTask?.id ?? savedTask?.task?.id ?? savedTask?.data?.id ?? null;
+          if (
+            returnedId !== null &&
+            returnedId !== undefined &&
+            Number.isFinite(Number(returnedId))
+          ) {
             saveGroupAssignment(Number(returnedId), selectedGroupId);
           }
           setQuickTitle('');
@@ -772,7 +998,18 @@ export function useAppController() {
         showToast("Couldn't reach the server.", 'error');
       }
     } else {
-      setTasks([...tasks, { id: Date.now(), title, description: '', completed: false, pinned: false, urgent: false, groupId: selectedGroupId }]);
+      setTasks([
+        ...tasks,
+        {
+          id: Date.now(),
+          title,
+          description: '',
+          completed: false,
+          pinned: false,
+          urgent: false,
+          groupId: selectedGroupId,
+        },
+      ]);
       setQuickTitle('');
       showToast('Task created');
     }
@@ -780,7 +1017,7 @@ export function useAppController() {
 
   const handleDeleteTask = async (id: number | null) => {
     if (isDemoMode) {
-      setTasks(tasks.filter(t => t.id !== id));
+      setTasks(tasks.filter((t) => t.id !== id));
       saveGroupAssignment(id, null);
       showToast('Task deleted (Demo Mode)', 'deletion');
       return;
@@ -788,12 +1025,12 @@ export function useAppController() {
 
     if (isBackendOnline) {
       try {
-        const response = await fetch(`${API_BASE_URL}/${id}`, { 
+        const response = await fetch(`${API_BASE_URL}/${id}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (response.ok) {
-          setTasks(tasks.filter(t => t.id !== id));
+          setTasks(tasks.filter((t) => t.id !== id));
           saveGroupAssignment(id, null);
           showToast('Task deleted', 'deletion');
           logActivity('Deleted task');
@@ -808,14 +1045,16 @@ export function useAppController() {
 
   const toggleComplete = async (task: Task) => {
     const updated = { ...task, completed: !task.completed };
-    
+
     showToast(
-      updated.completed ? `Completed "${task.title}"` : `Marked "${task.title}" as to do`,
-      updated.completed ? 'completion' : 'info'
+      updated.completed
+        ? `Completed "${task.title}"`
+        : `Marked "${task.title}" as to do`,
+      updated.completed ? 'completion' : 'info',
     );
 
     if (isDemoMode) {
-      setTasks(tasks.map(t => t.id === task.id ? updated : t));
+      setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
       return;
     }
 
@@ -823,14 +1062,14 @@ export function useAppController() {
       try {
         const response = await fetch(`${API_BASE_URL}/${task.id}`, {
           method: 'PUT',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(updated)
+          body: JSON.stringify(updated),
         });
         if (response.ok) {
-          setTasks(tasks.map(t => t.id === task.id ? updated : t));
+          setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
         } else {
           showToast("Couldn't update the status. Try again.", 'error');
         }
@@ -838,33 +1077,45 @@ export function useAppController() {
         showToast("Couldn't reach the server.", 'error');
       }
     } else {
-      setTasks(tasks.map(t => t.id === task.id ? updated : t));
+      setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
     }
-    logActivity(updated.completed ? `Completed task "${task.title}"` : `Marked task "${task.title}" as to do`);
+    logActivity(
+      updated.completed
+        ? `Completed task "${task.title}"`
+        : `Marked task "${task.title}" as to do`,
+    );
   };
 
   const toggleUrgent = async (task: Task) => {
     const updated = { ...task, urgent: !task.urgent };
     if (isDemoMode) {
-      setTasks(tasks.map(t => t.id === task.id ? updated : t));
+      setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
       showToast(updated.urgent ? 'Marked as urgent' : 'Urgent tag removed');
-      logActivity(updated.urgent ? `Marked task "${task.title}" as urgent` : `Removed urgent tag from task "${task.title}"`);
+      logActivity(
+        updated.urgent
+          ? `Marked task "${task.title}" as urgent`
+          : `Removed urgent tag from task "${task.title}"`,
+      );
       return;
     }
 
     try {
       const response = await fetch(`${API_BASE_URL}/${task.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updated)
+        body: JSON.stringify(updated),
       });
       if (response.ok) {
-        setTasks(tasks.map(t => t.id === task.id ? updated : t));
+        setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
         showToast(updated.urgent ? 'Marked as urgent' : 'Urgent tag removed');
-        logActivity(updated.urgent ? `Marked task "${task.title}" as urgent` : `Removed urgent tag from task "${task.title}"`);
+        logActivity(
+          updated.urgent
+            ? `Marked task "${task.title}" as urgent`
+            : `Removed urgent tag from task "${task.title}"`,
+        );
       }
     } catch (err) {
       showToast("Couldn't reach the server.", 'error');
@@ -874,25 +1125,33 @@ export function useAppController() {
   const togglePinned = async (task: Task) => {
     const updated = { ...task, pinned: !task.pinned };
     if (isDemoMode) {
-      setTasks(tasks.map(t => t.id === task.id ? updated : t));
+      setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
       showToast(updated.pinned ? 'Task pinned to top' : 'Pin removed');
-      logActivity(updated.pinned ? `Pinned task "${task.title}"` : `Unpinned task "${task.title}"`);
+      logActivity(
+        updated.pinned
+          ? `Pinned task "${task.title}"`
+          : `Unpinned task "${task.title}"`,
+      );
       return;
     }
 
     try {
       const response = await fetch(`${API_BASE_URL}/${task.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updated)
+        body: JSON.stringify(updated),
       });
       if (response.ok) {
-        setTasks(tasks.map(t => t.id === task.id ? updated : t));
+        setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
         showToast(updated.pinned ? 'Task pinned to top' : 'Pin removed');
-        logActivity(updated.pinned ? `Pinned task "${task.title}"` : `Unpinned task "${task.title}"`);
+        logActivity(
+          updated.pinned
+            ? `Pinned task "${task.title}"`
+            : `Unpinned task "${task.title}"`,
+        );
       }
     } catch (err) {
       showToast("Couldn't reach the server.", 'error');
@@ -906,14 +1165,16 @@ export function useAppController() {
     }
 
     try {
-      const matchedGroup = groups.find(g => String(g.id) === String(task.groupId));
+      const matchedGroup = groups.find(
+        (g) => String(g.id) === String(task.groupId),
+      );
       const groupNameValue = matchedGroup ? matchedGroup.name : null;
 
       const response = await fetch(`${API_BASE_URL}/${task.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: task.title,
@@ -921,8 +1182,8 @@ export function useAppController() {
           completed: task.completed,
           pinned: task.pinned ?? false,
           urgent: task.urgent ?? false,
-          groupName: groupNameValue
-        })
+          groupName: groupNameValue,
+        }),
       });
 
       if (response.ok) {
@@ -938,14 +1199,20 @@ export function useAppController() {
 
   const moveTaskToGroup = async (task: Task, newGroupId: string | null) => {
     const updated = { ...task, groupId: newGroupId };
-    
-    const targetGroup = groups.find(g => String(g.id) === String(newGroupId));
+
+    const targetGroup = groups.find((g) => String(g.id) === String(newGroupId));
     const groupNameValue = targetGroup ? targetGroup.name : null;
 
-    showToast(`Moved "${task.title}" to ${targetGroup ? targetGroup.name : 'No group'}`);
+    showToast(
+      `Moved "${task.title}" to ${targetGroup ? targetGroup.name : 'No group'}`,
+    );
 
     if (isDemoMode) {
-      setTasks(tasks.map(t => t.id === task.id ? { ...updated, groupName: groupNameValue } : t));
+      setTasks(
+        tasks.map((t) =>
+          t.id === task.id ? { ...updated, groupName: groupNameValue } : t,
+        ),
+      );
       saveGroupAssignment(task.id, newGroupId);
       return;
     }
@@ -954,9 +1221,9 @@ export function useAppController() {
       try {
         const response = await fetch(`${API_BASE_URL}/${task.id}`, {
           method: 'PUT',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             title: task.title,
@@ -964,12 +1231,16 @@ export function useAppController() {
             completed: task.completed,
             pinned: task.pinned ?? false,
             urgent: task.urgent ?? false,
-            groupName: groupNameValue
-          })
+            groupName: groupNameValue,
+          }),
         });
         if (response.ok) {
           saveGroupAssignment(task.id, newGroupId);
-          setTasks(tasks.map(t => t.id === task.id ? { ...updated, groupName: groupNameValue } : t));
+          setTasks(
+            tasks.map((t) =>
+              t.id === task.id ? { ...updated, groupName: groupNameValue } : t,
+            ),
+          );
         } else {
           showToast("Couldn't move task group. Try again.", 'error');
         }
@@ -977,14 +1248,26 @@ export function useAppController() {
         showToast("Couldn't reach the server.", 'error');
       }
     } else {
-      setTasks(tasks.map(t => t.id === task.id ? { ...updated, groupName: groupNameValue } : t));
+      setTasks(
+        tasks.map((t) =>
+          t.id === task.id ? { ...updated, groupName: groupNameValue } : t,
+        ),
+      );
       saveGroupAssignment(task.id, newGroupId);
     }
     logActivity(`Moved task "${task.title}" to group`);
   };
 
   const openCreateModal = () => {
-    setCurrentTask({ id: null, title: '', description: '', completed: false, pinned: false, urgent: false, groupId: selectedGroupId });
+    setCurrentTask({
+      id: null,
+      title: '',
+      description: '',
+      completed: false,
+      pinned: false,
+      urgent: false,
+      groupId: selectedGroupId,
+    });
     setIsEditing(false);
     setIsModalOpen(true);
   };
@@ -997,7 +1280,15 @@ export function useAppController() {
 
   const closeModal = () => {
     setIsModalOpen(false);
-    setCurrentTask({ id: null, title: '', description: '', completed: false, pinned: false, urgent: false, groupId: null });
+    setCurrentTask({
+      id: null,
+      title: '',
+      description: '',
+      completed: false,
+      pinned: false,
+      urgent: false,
+      groupId: null,
+    });
   };
 
   const confirmDelete = async () => {
@@ -1018,59 +1309,74 @@ export function useAppController() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isModalOpen, taskToDelete, isLargeScreen, isGroupModalOpen, isAccountManagerOpen, isDeleteAccountConfirmOpen]);
+  }, [
+    isModalOpen,
+    taskToDelete,
+    isLargeScreen,
+    isGroupModalOpen,
+    isAccountManagerOpen,
+    isDeleteAccountConfirmOpen,
+  ]);
 
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    // Find the currently selected group object to compare names if needed
-    const selectedGroup = groups.find(g => String(g.id) === String(selectedGroupId));
-    const matchesGroup = !selectedGroupId || 
-      String(task.groupId) === String(selectedGroupId) || 
-      (selectedGroup && task.groupName === selectedGroup.name);
-      
-    if (!matchesSearch || !matchesGroup) return false;
-    if (filter === 'PENDING') return !task.completed;
-    if (filter === 'COMPLETED') return task.completed;
-    if (filter === 'URGENT') return !task.completed && task.urgent;
+  const filteredTasks = tasks
+    .filter((task) => {
+      const matchesSearch =
+        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (task.description &&
+          task.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    if (quickFilterPinned && !task.pinned) return false;
-    if (quickFilterUrgent && !task.urgent) return false;
-    if (quickFilterHasDesc && (!task.description || !task.description.trim())) return false;
-    if (quickFilterHideDone && task.completed) return false;
+      // Find the currently selected group object to compare names if needed
+      const selectedGroup = groups.find(
+        (g) => String(g.id) === String(selectedGroupId),
+      );
+      const matchesGroup =
+        !selectedGroupId ||
+        String(task.groupId) === String(selectedGroupId) ||
+        (selectedGroup && task.groupName === selectedGroup.name);
 
-    return true;
-  }).sort((a, b) => {
-    if (a.completed !== b.completed) {
-      return a.completed ? 1 : -1;
-    }
-    if (!a.completed) {
-      const pinnedA = !!a.pinned;
-      const pinnedB = !!b.pinned;
-      if (pinnedA !== pinnedB) return pinnedA ? -1 : 1;
+      if (!matchesSearch || !matchesGroup) return false;
+      if (filter === 'PENDING') return !task.completed;
+      if (filter === 'COMPLETED') return task.completed;
+      if (filter === 'URGENT') return !task.completed && task.urgent;
 
-      const urgentA = !!a.urgent;
-      const urgentB = !!b.urgent;
-      if (urgentA !== urgentB) return urgentA ? -1 : 1;
-    }
-    const idA = a.id || 0;
-    const idB = b.id || 0;
-    if (sortOrder === 'newest') {
-      return idB - idA;
-    } else {
-      return idA - idB;
-    }
-  });
+      if (quickFilterPinned && !task.pinned) return false;
+      if (quickFilterUrgent && !task.urgent) return false;
+      if (quickFilterHasDesc && (!task.description || !task.description.trim()))
+        return false;
+      if (quickFilterHideDone && task.completed) return false;
 
-  const completedCount = tasks.filter(t => t.completed).length;
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1;
+      }
+      if (!a.completed) {
+        const pinnedA = !!a.pinned;
+        const pinnedB = !!b.pinned;
+        if (pinnedA !== pinnedB) return pinnedA ? -1 : 1;
+
+        const urgentA = !!a.urgent;
+        const urgentB = !!b.urgent;
+        if (urgentA !== urgentB) return urgentA ? -1 : 1;
+      }
+      const idA = a.id || 0;
+      const idB = b.id || 0;
+      if (sortOrder === 'newest') {
+        return idB - idA;
+      } else {
+        return idA - idB;
+      }
+    });
+
+  const completedCount = tasks.filter((t) => t.completed).length;
   const pendingCount = tasks.length - completedCount;
-  const urgentCount = tasks.filter(t => !t.completed && t.urgent).length;
+  const urgentCount = tasks.filter((t) => !t.completed && t.urgent).length;
 
   const taskKeys = new Map<number | null, number>(
     [...tasks]
       .sort((a, b) => (a.id || 0) - (b.id || 0))
-      .map((t, i) => [t.id, i + 1] as [number | null, number])
+      .map((t, i) => [t.id, i + 1] as [number | null, number]),
   );
   const getTaskKey = (task: Task) => `WW-${taskKeys.get(task.id) ?? '?'}`;
 
@@ -1078,24 +1384,39 @@ export function useAppController() {
     { key: 'ALL', label: 'All tasks', icon: ListTodo, count: tasks.length },
     { key: 'PENDING', label: 'To do', icon: Clock, count: pendingCount },
     { key: 'URGENT', label: 'Urgent', icon: Flag, count: urgentCount },
-    { key: 'COMPLETED', label: 'Done', icon: CheckSquare, count: completedCount },
+    {
+      key: 'COMPLETED',
+      label: 'Done',
+      icon: CheckSquare,
+      count: completedCount,
+    },
   ];
 
   const filterTitle = selectedGroupId
-    ? (groups.find((group) => group.id === selectedGroupId)?.name ?? 'Group tasks')
-    : (navItems.find(n => n.key === filter)?.label ?? 'All tasks');
+    ? (groups.find((group) => group.id === selectedGroupId)?.name ??
+      'Group tasks')
+    : (navItems.find((n) => n.key === filter)?.label ?? 'All tasks');
   const isFirstLoad = loading && tasks.length === 0;
 
-  const dailyDoneCount = dailyTasks.filter(d => d.lastCompleted === today).length;
-  const allDailyDone = dailyTasks.length > 0 && dailyDoneCount === dailyTasks.length;
-  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const dailyDoneCount = dailyTasks.filter(
+    (d) => d.lastCompleted === today,
+  ).length;
+  const allDailyDone =
+    dailyTasks.length > 0 && dailyDoneCount === dailyTasks.length;
+  const todayLabel = new Date().toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isSidebarColumnOpen = isLargeScreen || isSidebarOpen;
-  const cardsSideBySide = isSidebarColumnOpen ? hasRoomForBothCardsWithChat : hasRoomForBothCardsWithRail;
+  const cardsSideBySide = isSidebarColumnOpen
+    ? hasRoomForBothCardsWithChat
+    : hasRoomForBothCardsWithRail;
 
   const authInputClass =
-    'w-full h-11 bg-white border-2 border-[#DEE2E6] hover:bg-[#F8F9FA] rounded px-3 text-sm placeholder-[#5C636A] focus:outline-none focus:border-[#212529] focus:bg-white';
+    'w-full h-11 bg-surface border-2 border-line hover:bg-subtle rounded px-3 text-sm placeholder-fg-3 focus:outline-none focus:border-fg focus:bg-surface';
 
   const isAuthScreen = !isDemoMode && !token;
   const toastPosition = isAuthScreen
@@ -1104,35 +1425,149 @@ export function useAppController() {
       ? `top-[6.4rem] left-4 md:left-[17rem] ${isSidebarColumnOpen ? (isSidebarCollapsed ? 'lg:right-[5rem]' : 'lg:right-[21.5rem]') + ' lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`
       : `top-[4.25rem] left-4 md:left-[17rem] ${isSidebarColumnOpen ? (isSidebarCollapsed ? 'lg:right-[5rem]' : 'lg:right-[21.5rem]') + ' lg:left-auto' : 'lg:right-[5rem] lg:left-auto'}`;
 
-
   return {
-    isDemoMode, userEmail, avatarId, changeAvatar,
-    token, setToken, authView, setAuthView, emailInput, setEmailInput,
-    passwordInput, setPasswordInput, authError, setAuthError,
-    confirmPasswordInput, setConfirmPasswordInput, showPassword, setShowPassword,
-    isAuthLoading, setIsAuthLoading, rememberMe, setRememberMe,
-    tasks, setTasks, groups, setGroups, selectedGroupId, setSelectedGroupId,
-    isGroupModalOpen, setIsGroupModalOpen, groupNameInput, setGroupNameInput,
-    isAccountManagerOpen, setIsAccountManagerOpen, currentPasswordInput, setCurrentPasswordInput,
-    newAccountPasswordInput, setNewAccountPasswordInput, confirmAccountPasswordInput,
-    setConfirmAccountPasswordInput, showAccountPasswords, setShowAccountPasswords,
-    isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen, deleteAccountPhrase, setDeleteAccountPhrase,
-    filter, setFilter, searchQuery, setSearchQuery, isBackendOnline, setIsBackendOnline,
-    loading, setLoading, isModalOpen, setIsModalOpen, currentTask, setCurrentTask,
-    isEditing, setIsEditing, isSaving, setIsSaving, quickTitle, setQuickTitle,
-    taskToDelete, setTaskToDelete, toast, setToast, dailyTasks, setDailyTasks,
-    dailyTitle, setDailyTitle, today, setToday, mobilePanel, setMobilePanel,
-    isLargeScreen, hasRoomForBothCardsWithChat, hasRoomForBothCardsWithRail, showToast,
-    sortOrder, setSortOrder, saveGroupAssignment, handleCreateGroup, handleDeleteGroup, groupToDelete, 
-    setGroupToDelete, handleChangePassword, handleDeleteAccount, switchAuthView, handleAuthSubmit,
-    clearSession, handleLogout, fetchTasks, fetchDailyTasks, handleAddDaily, toggleDaily, deleteDaily,
-    handleSaveTask, handleQuickAdd, handleDeleteTask, toggleComplete, toggleUrgent, togglePinned,
-    openCreateModal, openEditModal, closeModal, confirmDelete, filteredTasks, completedCount, pendingCount,
-    urgentCount, taskKeys, getTaskKey, navItems, filterTitle, isFirstLoad, dailyDoneCount, allDailyDone,
-    todayLabel, isSidebarOpen, setIsSidebarOpen, isSidebarCollapsed, setIsSidebarCollapsed, cardsSideBySide,
-    authInputClass, isAuthScreen, toastPosition, activeTaskId, setActiveTaskId, activeTask, updateTaskBackend,
-    quickFilterPinned, setQuickFilterPinned, quickFilterUrgent, setQuickFilterUrgent,
-    quickFilterHasDesc, setQuickFilterHasDesc, quickFilterHideDone, setQuickFilterHideDone, activities, logActivity
+    isDemoMode,
+    userEmail,
+    avatarId,
+    changeAvatar,
+    token,
+    setToken,
+    authView,
+    setAuthView,
+    emailInput,
+    setEmailInput,
+    passwordInput,
+    setPasswordInput,
+    authError,
+    setAuthError,
+    confirmPasswordInput,
+    setConfirmPasswordInput,
+    showPassword,
+    setShowPassword,
+    isAuthLoading,
+    setIsAuthLoading,
+    rememberMe,
+    setRememberMe,
+    tasks,
+    setTasks,
+    groups,
+    setGroups,
+    selectedGroupId,
+    setSelectedGroupId,
+    isGroupModalOpen,
+    setIsGroupModalOpen,
+    groupNameInput,
+    setGroupNameInput,
+    isAccountManagerOpen,
+    setIsAccountManagerOpen,
+    currentPasswordInput,
+    setCurrentPasswordInput,
+    newAccountPasswordInput,
+    setNewAccountPasswordInput,
+    confirmAccountPasswordInput,
+    setConfirmAccountPasswordInput,
+    showAccountPasswords,
+    setShowAccountPasswords,
+    isDeleteAccountConfirmOpen,
+    setIsDeleteAccountConfirmOpen,
+    deleteAccountPhrase,
+    setDeleteAccountPhrase,
+    filter,
+    setFilter,
+    searchQuery,
+    setSearchQuery,
+    isBackendOnline,
+    setIsBackendOnline,
+    loading,
+    setLoading,
+    isModalOpen,
+    setIsModalOpen,
+    currentTask,
+    setCurrentTask,
+    isEditing,
+    setIsEditing,
+    isSaving,
+    setIsSaving,
+    quickTitle,
+    setQuickTitle,
+    taskToDelete,
+    setTaskToDelete,
+    toast,
+    setToast,
+    dailyTasks,
+    setDailyTasks,
+    dailyTitle,
+    setDailyTitle,
+    today,
+    setToday,
+    mobilePanel,
+    setMobilePanel,
+    isLargeScreen,
+    hasRoomForBothCardsWithChat,
+    hasRoomForBothCardsWithRail,
+    showToast,
+    sortOrder,
+    setSortOrder,
+    saveGroupAssignment,
+    handleCreateGroup,
+    handleDeleteGroup,
+    groupToDelete,
+    setGroupToDelete,
+    handleChangePassword,
+    handleDeleteAccount,
+    switchAuthView,
+    handleAuthSubmit,
+    clearSession,
+    handleLogout,
+    fetchTasks,
+    fetchDailyTasks,
+    handleAddDaily,
+    toggleDaily,
+    deleteDaily,
+    handleSaveTask,
+    handleQuickAdd,
+    handleDeleteTask,
+    toggleComplete,
+    toggleUrgent,
+    togglePinned,
+    openCreateModal,
+    openEditModal,
+    closeModal,
+    confirmDelete,
+    filteredTasks,
+    completedCount,
+    pendingCount,
+    urgentCount,
+    taskKeys,
+    getTaskKey,
+    navItems,
+    filterTitle,
+    isFirstLoad,
+    dailyDoneCount,
+    allDailyDone,
+    todayLabel,
+    isSidebarOpen,
+    setIsSidebarOpen,
+    isSidebarCollapsed,
+    setIsSidebarCollapsed,
+    cardsSideBySide,
+    authInputClass,
+    isAuthScreen,
+    toastPosition,
+    activeTaskId,
+    setActiveTaskId,
+    activeTask,
+    updateTaskBackend,
+    quickFilterPinned,
+    setQuickFilterPinned,
+    quickFilterUrgent,
+    setQuickFilterUrgent,
+    quickFilterHasDesc,
+    setQuickFilterHasDesc,
+    quickFilterHideDone,
+    setQuickFilterHideDone,
+    activities,
+    logActivity,
   };
 }
 
