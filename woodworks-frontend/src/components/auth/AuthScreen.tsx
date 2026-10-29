@@ -187,7 +187,7 @@ export default function AuthScreen({ app }: Props) {
                   setVerificationPendingEmail(null);
                   switchAuthView('login');
                 }}
-                className='w-full h-11 flex items-center justify-center bg-primary hover:bg-primary-hover text-white rounded text-sm font-medium transition-colors cursor-pointer'
+                className='w-full h-11 flex items-center justify-center bg-[#BF5700] hover:bg-[#A34A00] text-white rounded text-sm font-medium transition-colors cursor-pointer'
               >
                 Back to Sign In
               </button>
@@ -245,7 +245,7 @@ export default function AuthScreen({ app }: Props) {
                 <button
                   type='submit'
                   disabled={isSendingForgot}
-                  className='w-full h-11 flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white rounded text-sm font-medium transition-colors cursor-pointer disabled:opacity-50'
+                  className='w-full h-11 flex items-center justify-center gap-2 bg-[#BF5700] hover:bg-[#A34A00] text-white rounded text-sm font-medium transition-colors cursor-pointer disabled:opacity-50'
                 >
                   {isSendingForgot && (
                     <RefreshCw className='w-4 h-4 animate-spin' />
@@ -387,12 +387,12 @@ export default function AuthScreen({ app }: Props) {
                 )}
 
                 <button
-                  type='submit'
+                  type="submit"
                   disabled={isAuthLoading}
-                  className='w-full h-11 flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white rounded text-sm font-medium transition-colors cursor-pointer disabled:opacity-50'
+                  className="w-full h-11 flex items-center justify-center gap-2 bg-[#BF5700] hover:bg-[#A34A00] text-white rounded text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isAuthLoading && (
-                    <RefreshCw className='w-4 h-4 animate-spin' />
+                    <RefreshCw className="w-4 h-4 animate-spin" />
                   )}
                   {isAuthLoading
                     ? authView === 'login'
