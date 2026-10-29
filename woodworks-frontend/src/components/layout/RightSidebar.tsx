@@ -665,7 +665,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
                     app.updateTaskBackend(task);
                   }
                 }}
-                className={`${fieldClass} py-2 resize-none`}
+                className={`${fieldClass} py-2 resize-none scrollbar-light`}
                 placeholder="Add a detailed description..."
               />
               <div className="flex justify-between items-center mt-1.5">
@@ -795,7 +795,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
           maxLength={NOTES_MAX_LENGTH}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Jot down notes..."
-          className={`w-full rounded px-3 text-sm border-2 border-transparent focus:outline-none flex-1 min-h-[12rem] py-2 resize-none transition-colors ${
+          className={`w-full rounded px-3 text-sm border-2 border-transparent focus:outline-none flex-1 min-h-48 py-2 resize-none transition-colors scrollbar-light ${
             isScratchpadDark
               ? 'bg-[#202020] text-white placeholder-white/40 focus:border-[#383838]'
               : 'bg-white text-[#212529] placeholder-[#5C636A] focus:border-[#212529]'
