@@ -55,9 +55,12 @@ export default function App() {
         <div className='h-dvh flex flex-col overflow-hidden bg-page text-fg'>
           {app.isDemoMode && (
             <div className='shrink-0 bg-chip border-b border-line px-4 py-2 text-xs text-fg flex items-center justify-between gap-3 font-medium'>
-              <span>
+              <span className='hidden sm:inline'>
                 💡 <strong>Demo Mode:</strong> You are testing an interactive
                 sandbox. Changes won't affect live production data.
+              </span>
+              <span className='sm:hidden'>
+                💡 <strong>Demo mode:</strong> changes won't affect live data.
               </span>
               <a
                 href='https://github.com/vnclrd/woodworks'

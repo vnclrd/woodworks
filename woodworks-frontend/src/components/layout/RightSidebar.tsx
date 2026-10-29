@@ -947,7 +947,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
   return (
     <aside
       aria-label="Workspace tools"
-      className={`h-full shrink-0 bg-[#BF5700] text-white border-l border-black/10 flex flex-col overflow-hidden transition-[width] duration-300 motion-reduce:transition-none ${
+      className={`max-md:hidden h-full shrink-0 bg-[#BF5700] text-white border-l border-black/10 flex flex-col overflow-hidden transition-[width] duration-300 motion-reduce:transition-none ${
         isCollapsed ? 'w-16' : 'w-80'
       }`}
     >

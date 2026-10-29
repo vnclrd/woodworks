@@ -204,6 +204,11 @@ export function useAppController() {
   }, [token]);
 
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
+  const isMobile = !useMediaQuery('(min-width: 768px)');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+    useEffect(() => {
+      if (!isMobile) setIsMobileNavOpen(false);
+    }, [isMobile]);
   const hasRoomForBothCardsWithChat = useMediaQuery('(min-width: 1440px)');
   const hasRoomForBothCardsWithRail = useMediaQuery('(min-width: 1240px)');
   const showToast = (message: string, type: Toast['type'] = 'success') =>
@@ -1503,6 +1508,9 @@ export function useAppController() {
     mobilePanel,
     setMobilePanel,
     isLargeScreen,
+    isMobile,
+    isMobileNavOpen,
+    setIsMobileNavOpen,
     hasRoomForBothCardsWithChat,
     hasRoomForBothCardsWithRail,
     showToast,

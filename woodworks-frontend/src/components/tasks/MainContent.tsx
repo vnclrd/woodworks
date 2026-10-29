@@ -1,21 +1,39 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AlertTriangle,
+  ArrowUpDown,
   CheckCircle2,
   Circle,
+  EllipsisVertical,
   Flag,
   Mic,
   MicOff,
   Pencil,
   Pin,
   Plus,
+  RefreshCw,
   Repeat,
   Trash2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { AppController } from '../../hooks/useAppController';
+import type { Task } from '../../types/task';
 
 const QUICK_TITLE_MAX = 100;
+
+const CHIP_LABELS: Record<string, string> = {
+  ALL: 'All',
+  PENDING: 'To do',
+  URGENT: 'Urgent',
+  COMPLETED: 'Done',
+};
+
+const chipClass = (active: boolean) =>
+  `shrink-0 h-9 px-3.5 flex items-center gap-1.5 rounded-full border text-sm font-medium cursor-pointer transition-colors ${
+    active
+      ? 'bg-primary text-white border-primary'
+      : 'bg-surface text-fg-2 border-line hover:bg-tint'
+  }`;
 
 type Props = { app: AppController };
 
@@ -54,9 +72,19 @@ export default function MainContent({ app }: Props) {
     dailyTitle,
     setDailyTitle,
     setIsSidebarCollapsed,
+    isMobile,
+    selectedGroupId,
+    navItems,
+    sortOrder,
+    setSortOrder,
+    fetchDailyTasks,
+    loading,
   } = app;
 
   const [isListening, setIsListening] = useState(false);
+  // Phones: the task whose action sheet (pin / urgent / edit / delete) is open
+  const [sheetTask, setSheetTask] = useState<Task | null>(null);
+  const showingDaily = isMobile && mobilePanel === 'daily';
 
   // Character-limit warning states
   const quickTitleAtLimit = quickTitle.length >= QUICK_TITLE_MAX;
@@ -64,10 +92,10 @@ export default function MainContent({ app }: Props) {
     quickTitle.length >= QUICK_TITLE_MAX - 10 && !quickTitleAtLimit;
 
   return (
-    <main className='flex-1 min-w-0 min-h-0 flex flex-col px-4 sm:px-6 py-6'>
+    <main className='flex-1 min-w-0 min-h-0 flex flex-col pt-3 md:px-6 md:py-6'>
       {!isBackendOnline && (
         <div
-          className='shrink-0 mb-5 flex items-start gap-3 rounded border border-warn-line bg-warn-bg px-4 py-3 text-sm'
+          className='shrink-0 mb-3 mx-4 md:mx-0 md:mb-5 flex items-start gap-3 rounded border border-warn-line bg-warn-bg px-4 py-3 text-sm'
           role='status'
         >
           <AlertTriangle className='w-4 h-4 mt-0.5 text-warn shrink-0' />
@@ -86,45 +114,109 @@ export default function MainContent({ app }: Props) {
         </div>
       )}
 
-      <div className='shrink-0 flex items-end justify-between gap-3 mb-4'>
-        <div>
-          <p className='text-xs text-fg-3 mb-1'>Tasks / {filterTitle}</p>
+      <div className='shrink-0 flex items-end justify-between gap-3 mb-3 px-4 md:px-0 md:mb-4'>
+        <div className='min-w-0'>
+          <p className='hidden md:block text-xs text-fg-3 mb-1'>
+            Tasks / {filterTitle}
+          </p>
 
-          <h1 className='text-2xl font-semibold'>{filterTitle}</h1>
+          <h1 className='text-xl md:text-2xl font-semibold truncate'>
+            {showingDaily ? 'Daily tasks' : filterTitle}
+          </h1>
 
-          {!isFirstLoad && (
-            <p className='text-sm text-fg-3 mt-1'>
-              {filteredTasks.length}{' '}
-              {filteredTasks.length === 1 ? 'task' : 'tasks'}
-              {searchQuery && ` matching "${searchQuery}"`}
+          {showingDaily ? (
+            <p className='text-sm text-fg-3 mt-0.5'>
+              {allDailyDone
+                ? 'All done today'
+                : `${dailyDoneCount} of ${dailyTasks.length} done today`}{' '}
+              · {todayLabel}
             </p>
+          ) : (
+            !isFirstLoad && (
+              <p className='text-sm text-fg-3 mt-0.5 md:mt-1 truncate'>
+                {filteredTasks.length}{' '}
+                {filteredTasks.length === 1 ? 'task' : 'tasks'}
+                {searchQuery && ` matching "${searchQuery}"`}
+              </p>
+            )
           )}
         </div>
 
-        <div className='md:hidden shrink-0 flex rounded border border-line bg-surface overflow-hidden'>
-          {['ALL', 'PENDING', 'URGENT', 'COMPLETED'].map((tab) => (
+        {/* Phones: sort + refresh live here instead of the cramped header */}
+        <div className='md:hidden shrink-0 flex items-center'>
+          {!showingDaily && (
             <button
-              key={tab}
+              onClick={() =>
+                setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))
+              }
+              aria-label={`Sorted by ${sortOrder} first. Tap to reverse.`}
+              className='h-10 px-3 flex items-center gap-1.5 rounded text-xs font-medium text-fg-2 hover:bg-tint active:bg-tint cursor-pointer'
+            >
+              <ArrowUpDown className='w-4 h-4' />
+              {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              fetchTasks(false);
+              fetchDailyTasks();
+            }}
+            aria-label='Refresh tasks'
+            className='h-10 w-10 flex items-center justify-center rounded text-fg-2 hover:bg-tint active:bg-tint cursor-pointer'
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Phones: one scrollable strip for filters + Daily (replaces the cramped tab boxes) */}
+      <div
+        aria-label='Task views'
+        className='md:hidden shrink-0 mb-3 flex gap-2 overflow-x-auto px-4 scrollbar-none'
+      >
+        {navItems.map(({ key, count }) => {
+          const active =
+            mobilePanel === 'tasks' && !selectedGroupId && filter === key;
+          return (
+            <button
+              key={key}
               onClick={() => {
-                setFilter(tab);
+                setFilter(key);
                 setSelectedGroupId(null);
                 setMobilePanel('tasks');
               }}
-              className={`px-2.5 h-8 text-xs font-medium cursor-pointer transition-colors ${
-                filter === tab
-                  ? 'bg-primary text-white'
-                  : 'text-fg-2 hover:bg-tint'
-              }`}
+              aria-pressed={active}
+              className={chipClass(active)}
             >
-              {tab.charAt(0) + tab.slice(1).toLowerCase()}
+              {CHIP_LABELS[key] ?? key}
+              <span
+                className={`text-xs tabular-nums ${active ? 'text-white/70' : 'text-fg-3'}`}
+              >
+                {count}
+              </span>
             </button>
-          ))}
-        </div>
+          );
+        })}
+
+        <button
+          onClick={() => setMobilePanel('daily')}
+          aria-pressed={mobilePanel === 'daily'}
+          className={chipClass(mobilePanel === 'daily')}
+        >
+          Daily
+          <span
+            className={`text-xs tabular-nums ${mobilePanel === 'daily' ? 'text-white/70' : 'text-fg-3'}`}
+          >
+            {dailyDoneCount}/{dailyTasks.length}
+          </span>
+        </button>
+        <span aria-hidden='true' className='shrink-0 w-2' />
       </div>
 
       <div
         className={`${
-          cardsSideBySide ? 'hidden' : 'flex'
+          cardsSideBySide ? 'hidden' : 'max-md:hidden flex'
         } shrink-0 mb-3 w-fit rounded border border-line bg-surface overflow-hidden`}
       >
         {(
@@ -164,7 +256,7 @@ export default function MainContent({ app }: Props) {
           data-guide='tasks-card'
           className={`${
             cardsSideBySide || mobilePanel === 'tasks' ? 'flex' : 'hidden'
-          } @container min-w-0 min-h-0 flex-col bg-surface border border-line rounded-md overflow-hidden`}
+          } @container min-w-0 min-h-0 flex-col bg-surface border border-line rounded-md max-md:rounded-none max-md:border-x-0 overflow-hidden`}
         >
           <div className='shrink-0 hidden @xl:grid grid-cols-[2rem_5rem_1fr_11.5rem_8rem] gap-3 px-4 h-10 items-center border-b border-line bg-subtle text-xs font-semibold text-fg-3'>
             <span />
@@ -224,7 +316,7 @@ export default function MainContent({ app }: Props) {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: -50 }}
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
-                        className={`grid grid-cols-[2rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_11.5rem_8rem] gap-3 px-4 py-3 items-center hover:bg-subtle ${
+                        className={`grid grid-cols-[1.5rem_1fr_auto] @xl:grid-cols-[2rem_5rem_1fr_11.5rem_8rem] gap-3 px-4 py-2.5 @xl:py-3 items-center hover:bg-subtle ${
                           pinned && urgent
                             ? 'bg-row-danger shadow-[inset_6px_0_0_#DC2626]'
                             : pinned
@@ -241,7 +333,7 @@ export default function MainContent({ app }: Props) {
                           aria-label={
                             task.completed ? 'Mark as to do' : 'Mark as done'
                           }
-                          className='text-fg-3 hover:text-ok transition-colors cursor-pointer'
+                          className='text-fg-3 hover:text-ok transition-colors cursor-pointer -m-2 p-2'
                         >
                           {task.completed ? (
                             <CheckCircle2 className='w-5 h-5 text-ok' />
@@ -256,6 +348,11 @@ export default function MainContent({ app }: Props) {
 
                         <button
                           onClick={() => {
+                            // Phones have no utility sidebar, so open the editor instead
+                            if (isMobile) {
+                              openEditModal(task);
+                              return;
+                            }
                             app.setActiveTaskId(task.id);
                             app.setIsSidebarOpen(true);
                             setIsSidebarCollapsed(false);
@@ -316,7 +413,7 @@ export default function MainContent({ app }: Props) {
                               ? 'task-actions'
                               : undefined
                           }
-                          className='flex items-center justify-end gap-1'
+                          className='hidden @xl:flex items-center justify-end gap-1'
                         >
                           {!task.completed && (
                             <>
@@ -368,6 +465,16 @@ export default function MainContent({ app }: Props) {
                             <Trash2 className='w-4 h-4' />
                           </button>
                         </div>
+
+                        {/* Narrow cards (phones): one big tap target opens the action sheet */}
+                        <button
+                          onClick={() => setSheetTask(task)}
+                          aria-label={`Actions for ${task.title}`}
+                          aria-haspopup='dialog'
+                          className='@xl:hidden -mr-2 h-10 w-10 flex items-center justify-center rounded text-fg-2 hover:bg-tint active:bg-tint cursor-pointer'
+                        >
+                          <EllipsisVertical className='w-5 h-5' />
+                        </button>
                       </motion.li>
                     );
                   })}
@@ -404,10 +511,13 @@ export default function MainContent({ app }: Props) {
                 aria-label='Task summary'
                 aria-describedby='quick-title-counter'
                 maxLength={QUICK_TITLE_MAX}
+                enterKeyHint='send'
                 placeholder={
                   isListening
                     ? 'Listening... speak your task summary'
-                    : 'Create a task and press Enter'
+                    : isMobile
+                      ? 'Add a task'
+                      : 'Create a task and press Enter'
                 }
                 value={quickTitle}
                 onChange={(e) => setQuickTitle(e.target.value)}
@@ -417,7 +527,7 @@ export default function MainContent({ app }: Props) {
 
               <span
                 id='quick-title-counter'
-                className={`shrink-0 text-[11px] font-semibold tabular-nums transition-colors ${
+                className={`${quickTitle.length === 0 ? 'max-md:hidden' : ''} shrink-0 text-[11px] font-semibold tabular-nums transition-colors ${
                   quickTitleAtLimit
                     ? 'text-danger'
                     : quickTitleNearLimit
@@ -438,7 +548,7 @@ export default function MainContent({ app }: Props) {
                   isListening ? 'Stop listening' : 'Add task via voice'
                 }
                 aria-pressed={isListening}
-                className={`shrink-0 p-2 rounded-full transition-all cursor-pointer ${
+                className={`shrink-0 p-2.5 md:p-2 -mr-1 md:mr-0 rounded-full transition-all cursor-pointer ${
                   isListening
                     ? 'bg-[#C9372C] text-white animate-pulse'
                     : 'text-fg-3 hover:text-fg hover:bg-chip'
@@ -496,10 +606,10 @@ export default function MainContent({ app }: Props) {
           aria-label='Daily tasks'
           className={`${
             cardsSideBySide || mobilePanel === 'daily' ? 'flex' : 'hidden'
-          } min-w-0 min-h-0 flex-col bg-surface border border-line rounded-md overflow-hidden`}
+          } min-w-0 min-h-0 flex-col bg-surface border border-line rounded-md max-md:rounded-none max-md:border-x-0 overflow-hidden`}
         >
-          <div className='shrink-0 px-4 py-3 border-b border-line bg-subtle'>
-            <div className='flex items-center justify-between gap-2'>
+          <div className='shrink-0 px-4 py-3 max-md:py-2.5 border-b border-line bg-subtle'>
+            <div className='flex items-center justify-between gap-2 max-md:hidden'>
               <div className='flex items-center gap-2 min-w-0'>
                 <Repeat className='w-4 h-4 text-fg-2 shrink-0' />
 
@@ -517,11 +627,11 @@ export default function MainContent({ app }: Props) {
               </span>
             </div>
 
-            <p className='text-xs text-fg-3 mt-0.5'>
+            <p className='text-xs text-fg-3 mt-0.5 max-md:hidden'>
               Repeats every day · {todayLabel}
             </p>
 
-            <div className='h-1.5 mt-2.5 rounded-full bg-chip overflow-hidden'>
+            <div className='h-1.5 mt-2.5 max-md:mt-0 rounded-full bg-chip overflow-hidden'>
               <div
                 className='h-full bg-[#1F845A] transition-[width] duration-300'
                 style={{
@@ -564,7 +674,7 @@ export default function MainContent({ app }: Props) {
                           aria-label={
                             done ? 'Mark as not done today' : 'Mark as done today'
                           }
-                          className='shrink-0 text-fg-3 hover:text-ok transition-colors cursor-pointer'
+                          className='shrink-0 text-fg-3 hover:text-ok transition-colors cursor-pointer -m-2 p-2'
                         >
                           {done ? (
                             <CheckCircle2 className='w-5 h-5 text-ok' />
@@ -585,7 +695,7 @@ export default function MainContent({ app }: Props) {
                         <button
                           onClick={() => deleteDaily(daily.id)}
                           aria-label='Remove daily task'
-                          className='shrink-0 p-1.5 rounded text-fg-2 hover:bg-danger-bg hover:text-danger cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity'
+                          className='shrink-0 p-2 md:p-1.5 rounded text-fg-2 hover:bg-danger-bg hover:text-danger cursor-pointer pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100 transition-opacity'
                         >
                           <Trash2 className='w-4 h-4' />
                         </button>
@@ -607,6 +717,8 @@ export default function MainContent({ app }: Props) {
             <input
               type='text'
               aria-label='Daily task summary'
+              enterKeyHint='send'
+              style={{ outline: 'none', boxShadow: 'none' }}
               maxLength={100}
               placeholder='Add a daily task and press Enter'
               value={dailyTitle}
@@ -616,6 +728,126 @@ export default function MainContent({ app }: Props) {
           </form>
         </section>
       </div>
+
+      <AnimatePresence>
+        {sheetTask && (
+          <TaskActionSheet
+            key='task-action-sheet'
+            title={sheetTask.title}
+            onClose={() => setSheetTask(null)}
+            actions={[
+              ...(sheetTask.completed
+                ? []
+                : [
+                    {
+                      key: 'pin',
+                      label: sheetTask.pinned ? 'Unpin task' : 'Pin to top',
+                      icon: <Pin className='w-5 h-5' />,
+                      onClick: () => togglePinned(sheetTask),
+                    },
+                    {
+                      key: 'urgent',
+                      label: sheetTask.urgent
+                        ? 'Remove urgent tag'
+                        : 'Mark as urgent',
+                      icon: <Flag className='w-5 h-5' />,
+                      onClick: () => toggleUrgent(sheetTask),
+                    },
+                  ]),
+              {
+                key: 'edit',
+                label: 'Edit task',
+                icon: <Pencil className='w-5 h-5' />,
+                onClick: () => openEditModal(sheetTask),
+              },
+              {
+                key: 'delete',
+                label: 'Delete task',
+                icon: <Trash2 className='w-5 h-5' />,
+                tone: 'danger' as const,
+                onClick: () => setTaskToDelete(sheetTask),
+              },
+            ]}
+          />
+        )}
+      </AnimatePresence>
     </main>
+  );
+}
+
+type SheetAction = {
+  key: string;
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  tone?: 'danger';
+};
+
+// Bottom sheet with big tap targets, used for task actions on phones
+function TaskActionSheet({
+  title,
+  actions,
+  onClose,
+}: {
+  title: string;
+  actions: SheetAction[];
+  onClose: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className='fixed inset-0 z-50'>
+      <motion.div
+        className='absolute inset-0 bg-[#2125298A]'
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.15 }}
+        onClick={onClose}
+      />
+
+      <motion.div
+        role='dialog'
+        aria-modal='true'
+        aria-label='Task actions'
+        className='absolute inset-x-0 bottom-0 rounded-t-xl bg-surface text-fg shadow-[0_-8px_24px_#21252933] pb-[max(0.5rem,env(safe-area-inset-bottom))]'
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ duration: reduceMotion ? 0 : 0.22, ease: 'easeOut' }}
+      >
+        <div className='mx-auto mt-2 h-1 w-10 rounded-full bg-line' />
+        <p className='px-5 pt-3 pb-2 text-xs font-semibold text-fg-3 truncate'>
+          {title}
+        </p>
+
+        <ul>
+          {actions.map((action) => (
+            <li key={action.key}>
+              <button
+                onClick={() => {
+                  onClose();
+                  action.onClick();
+                }}
+                className={`w-full h-12 px-5 flex items-center gap-3 text-sm font-medium cursor-pointer hover:bg-tint active:bg-tint ${
+                  action.tone === 'danger' ? 'text-danger' : 'text-fg'
+                }`}
+              >
+                {action.icon}
+                {action.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </motion.div>
+    </div>
   );
 }

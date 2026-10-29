@@ -3,12 +3,13 @@ import {
   Folder,
   FolderPlus,
   HelpCircle,
+  LogOut,
   Settings,
   SquareCheckBig,
   Trash2,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AppController } from '../../hooks/useAppController';
 import AvatarPickerModal from '../modals/AvatarPickerModal';
 import UserAvatar from '../ui/UserAvatar';
@@ -35,12 +36,43 @@ export default function Sidebar({ app, onStartGuide }: Props) {
     userEmail,
     avatarId,
     changeAvatar,
+    isMobileNavOpen,
+    setIsMobileNavOpen,
+    isDemoMode,
+    handleLogout,
   } = app;
 
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
+  // Phones: Escape closes the navigation drawer
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMobileNavOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isMobileNavOpen, setIsMobileNavOpen]);
+
   return (
-    <aside className='hidden md:flex flex-col w-64 shrink-0 bg-sidebar border-r border-white/10 p-3 overflow-hidden relative'>
+    <>
+    {/* Phones: dimmed backdrop behind the drawer */}
+    <div
+      aria-hidden='true'
+      onClick={() => setIsMobileNavOpen(false)}
+      className={`md:hidden fixed inset-0 z-40 bg-[#2125298A] transition-opacity duration-200 motion-reduce:transition-none ${
+        isMobileNavOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+      }`}
+    />
+
+    {/* Phones: slide-in drawer. Tablets/desktop: the normal fixed sidebar */}
+    <aside
+      id='mobile-nav'
+      aria-label='Task navigation'
+      className={`flex flex-col shrink-0 bg-sidebar border-r border-white/10 p-3 overflow-hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] transition-[translate,visibility] duration-200 motion-reduce:transition-none md:static md:z-auto md:w-64 md:max-w-none md:translate-x-0 md:transition-none ${
+        isMobileNavOpen ? 'translate-x-0' : '-translate-x-full max-md:invisible'
+      }`}
+    >
       <div className='shrink-0 flex items-center gap-3 px-2 py-3 mb-2'>
         <div className='w-9 h-9 rounded bg-white/10 text-white flex items-center justify-center'>
           <SquareCheckBig className='w-5 h-5' />
@@ -51,6 +83,13 @@ export default function Sidebar({ app, onStartGuide }: Props) {
           </p>
           <p className='text-xs text-white/60'>Task management</p>
         </div>
+        <button
+          onClick={() => setIsMobileNavOpen(false)}
+          aria-label='Close menu'
+          className='md:hidden ml-auto h-10 w-10 -mr-2 flex items-center justify-center rounded text-white/75 hover:bg-white/10 hover:text-white cursor-pointer'
+        >
+          <X className='w-5 h-5' />
+        </button>
       </div>
 
       <nav
@@ -67,9 +106,10 @@ export default function Sidebar({ app, onStartGuide }: Props) {
                 setFilter(key);
                 setSelectedGroupId(null);
                 setMobilePanel('tasks');
+                setIsMobileNavOpen(false);
               }}
               aria-current={active ? 'page' : undefined}
-              className={`w-full flex items-center gap-2.5 px-2.5 h-9 rounded text-sm transition-colors cursor-pointer ${
+              className={`w-full flex items-center gap-2.5 px-2.5 h-11 md:h-9 rounded text-sm transition-colors cursor-pointer ${
                 active
                   ? 'bg-primary-hover text-white font-semibold'
                   : 'text-white/70 hover:bg-primary-hover hover:text-white'
@@ -102,7 +142,7 @@ export default function Sidebar({ app, onStartGuide }: Props) {
             }}
             title='Create group'
             aria-label='Create group'
-            className='w-7 h-7 flex items-center justify-center rounded text-white/75 hover:bg-white/10 hover:text-white transition-colors cursor-pointer'
+            className='w-9 h-9 md:w-7 md:h-7 -mr-1 md:mr-0 flex items-center justify-center rounded text-white/75 hover:bg-white/10 hover:text-white transition-colors cursor-pointer'
           >
             <FolderPlus className='w-4 h-4' />
           </button>
@@ -125,7 +165,7 @@ export default function Sidebar({ app, onStartGuide }: Props) {
             return (
               <div
                 key={group.id}
-                className={`flex items-center gap-1 w-full h-9 rounded px-2 text-sm transition-colors ${
+                className={`flex items-center gap-1 w-full h-11 md:h-9 rounded px-2 text-sm transition-colors ${
                   active
                     ? 'bg-primary-hover text-white font-semibold'
                     : 'text-white/70 hover:bg-primary-hover hover:text-white'
@@ -136,6 +176,7 @@ export default function Sidebar({ app, onStartGuide }: Props) {
                     setSelectedGroupId(group.id);
                     setFilter('ALL');
                     setMobilePanel('tasks');
+                    setIsMobileNavOpen(false);
                   }}
                   aria-current={active ? 'page' : undefined}
                   title={group.name}
@@ -156,7 +197,7 @@ export default function Sidebar({ app, onStartGuide }: Props) {
                     e.stopPropagation();
                     setGroupToDelete(group);
                   }}
-                  className='p-1 text-white/40 hover:text-red-400 hover:bg-white/10 rounded transition-colors cursor-pointer shrink-0'
+                  className='p-2 md:p-1 text-white/40 hover:text-red-400 hover:bg-white/10 rounded transition-colors cursor-pointer shrink-0'
                   title='Delete group'
                   aria-label={`Delete group ${group.name}`}
                 >
@@ -209,9 +250,12 @@ export default function Sidebar({ app, onStartGuide }: Props) {
         )}
 
         <button
-          onClick={() => setIsAccountManagerOpen(true)}
+          onClick={() => {
+            setIsMobileNavOpen(false);
+            setIsAccountManagerOpen(true);
+          }}
           data-guide='sidebar-account'
-          className='w-full h-10 flex items-center gap-2.5 px-2.5 rounded text-sm text-white/75 hover:bg-primary-hover hover:text-white transition-colors cursor-pointer'
+          className='w-full h-11 md:h-10 flex items-center gap-2.5 px-2.5 rounded text-sm text-white/75 hover:bg-primary-hover hover:text-white transition-colors cursor-pointer'
         >
           <Settings className='w-4 h-4' />
           <span>Account Manager</span>
@@ -219,14 +263,34 @@ export default function Sidebar({ app, onStartGuide }: Props) {
 
         {onStartGuide && (
           <button
-            onClick={onStartGuide}
-            className='w-full h-10 flex items-center gap-2.5 px-2.5 rounded text-sm text-white/75 hover:bg-primary-hover hover:text-white transition-colors cursor-pointer'
+            onClick={() => {
+              setIsMobileNavOpen(false);
+              onStartGuide?.();
+            }}
+            className='w-full h-11 md:h-10 flex items-center gap-2.5 px-2.5 rounded text-sm text-white/75 hover:bg-primary-hover hover:text-white transition-colors cursor-pointer'
           >
             <HelpCircle className='w-4 h-4' />
             <span>App Guide</span>
           </button>
         )}
+
+        {/* Phones: Logout lives here instead of the cramped header */}
+        {!isDemoMode && (
+          <button
+            onClick={() => {
+              setIsMobileNavOpen(false);
+              handleLogout();
+            }}
+            className='md:hidden w-full h-11 flex items-center gap-2.5 px-2.5 rounded text-sm text-white/75 hover:bg-primary-hover hover:text-white transition-colors cursor-pointer'
+          >
+            <LogOut className='w-4 h-4' />
+            <span>Sign out</span>
+          </button>
+        )}
       </div>
+    </aside>
+
+    {/* Modals sit outside the aside so the drawer's slide animation can't trap them */}
 
       {isAvatarPickerOpen && (
         <AvatarPickerModal
@@ -293,6 +357,6 @@ export default function Sidebar({ app, onStartGuide }: Props) {
           </div>
         </div>
       )}
-    </aside>
+    </>
   );
 }
