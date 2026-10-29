@@ -47,8 +47,8 @@ public class AuthController {
         // 1. Send verification email to the new user
         String frontendUrl = System.getenv("FRONTEND_URL");
         if (frontendUrl == null || frontendUrl.isEmpty()) {
-            // frontendUrl = "https://woodworks-ptms.vercel.app";
-            frontendUrl = "http://localhost:5173";
+            frontendUrl = "https://woodworks-ptms.vercel.app";
+            // frontendUrl = "http://localhost:5173";
         }
         // Clean trailing slashes to prevent "//verify-email"
         frontendUrl = frontendUrl.replaceAll("/+$", "");

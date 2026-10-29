@@ -18,16 +18,21 @@ import { useAppController } from './hooks/useAppController';
 export default function App() {
   const app = useAppController();
 
-  const GUIDE_PENDING = 'woodworks_guide_pending';
+  // Namespace the guide key by user email so it's unique per account
+  const guideKey = app.userEmail ? `woodworks_guide_pending_${app.userEmail}` : null;
   const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
-    if (app.isAuthScreen || app.isFirstLoad) return;
-    if (localStorage.getItem(GUIDE_PENDING) === '1') setShowGuide(true);
-  }, [app.isAuthScreen, app.isFirstLoad]);
+    if (app.isAuthScreen || app.isFirstLoad || !guideKey) return;
+    if (localStorage.getItem(guideKey) === '1') {
+      setShowGuide(true);
+    }
+  }, [app.isAuthScreen, app.isFirstLoad, guideKey]);
 
   const closeGuide = () => {
-    localStorage.removeItem(GUIDE_PENDING);
+    if (guideKey) {
+      localStorage.removeItem(guideKey);
+    }
     setShowGuide(false);
   };
 

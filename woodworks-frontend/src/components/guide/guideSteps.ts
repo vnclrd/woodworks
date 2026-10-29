@@ -1,8 +1,3 @@
-// components/guide/guideSteps.ts
-//
-// One entry per tool/feature. `target` matches a `data-guide="..."` attribute in the UI.
-// Steps whose target is missing or hidden (e.g. the left sidebar on mobile) are skipped automatically.
-
 export type GuideStep = {
   id: string;
   target?: string; // omit for a centered "welcome / finish" bubble
