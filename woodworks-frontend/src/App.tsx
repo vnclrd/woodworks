@@ -62,14 +62,6 @@ export default function App() {
               <span className='sm:hidden'>
                 💡 <strong>Demo mode:</strong> changes won't affect live data.
               </span>
-              <a
-                href='https://github.com/vnclrd/woodworks'
-                target='_blank'
-                rel='noreferrer'
-                className='shrink-0 underline hover:text-fg-2'
-              >
-                View Source
-              </a>
             </div>
           )}
 

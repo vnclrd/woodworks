@@ -436,6 +436,9 @@ export default function RightSidebar({ app }: RightSidebarProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingClearNotes, setConfirmingClearNotes] = useState(false);
+
+  const [isScratchpadDark, setIsScratchpadDark] = useState(false);
+
   const [notes, setNotes] = useState<string>(() => {
     try {
       return localStorage.getItem(NOTES_KEY) ?? '';
@@ -767,22 +770,39 @@ export default function RightSidebar({ app }: RightSidebarProps) {
     const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
 
     return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-3">
-          <h3 className="font-semibold">Scratchpad</h3>
+      <div className="h-full flex flex-col space-y-3">
+        {/* Header with Dark Mode Toggle Button */}
+        <div className="shrink-0 flex items-center justify-between gap-2 border-b border-white/20 pb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold">Scratchpad</h3>
+            <button
+              type="button"
+              onClick={() => setIsScratchpadDark(!isScratchpadDark)}
+              aria-label={isScratchpadDark ? 'Switch scratchpad to light mode' : 'Switch scratchpad to dark mode'}
+              title={isScratchpadDark ? 'Light scratchpad' : 'Dark scratchpad'}
+              className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white transition-colors cursor-pointer"
+            >
+              {isScratchpadDark ? 'Light' : 'Dark'}
+            </button>
+          </div>
           <span className="text-xs">Saved on this device</span>
         </div>
 
+        {/* Textarea with conditional dark styling */}
         <textarea
           aria-label="Scratchpad notes"
           value={notes}
           maxLength={NOTES_MAX_LENGTH}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Jot down notes..."
-          className={`${fieldClass} h-56 py-2 resize-none`}
+          className={`w-full rounded px-3 text-sm border-2 border-transparent focus:outline-none flex-1 min-h-[12rem] py-2 resize-none transition-colors ${
+            isScratchpadDark
+              ? 'bg-[#202020] text-white placeholder-white/40 focus:border-[#383838]'
+              : 'bg-white text-[#212529] placeholder-[#5C636A] focus:border-[#212529]'
+          }`}
         />
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="shrink-0 flex items-center justify-between gap-2">
           <p className="text-xs">
             {wordCount} {wordCount === 1 ? 'word' : 'words'} · {notes.length}/{NOTES_MAX_LENGTH}
           </p>
