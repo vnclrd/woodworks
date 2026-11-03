@@ -52,6 +52,10 @@ export function useAppController() {
       emailFromToken(token),
   );
 
+  const [userRole, setUserRole] = useState<string>(() => {
+    return localStorage.getItem('woodworks_user_role') || 'free';
+  });
+
   const [avatarId, setAvatarId] = useState<string | null>(() =>
     userEmail ? localStorage.getItem(avatarKey(userEmail)) : null,
   );
@@ -470,6 +474,11 @@ export function useAppController() {
         setAvatarId(null);
       }
 
+      if (data.role) {
+        localStorage.setItem('woodworks_user_role', data.role);
+        setUserRole(data.role);
+      }
+
       setToken(data.token);
       setUserEmail(emailInput.trim());
       setPasswordInput('');
@@ -503,6 +512,7 @@ export function useAppController() {
     localStorage.removeItem(TASKS_CACHE_KEY);
     setToken(null);
     setUserEmail(null);
+    setUserRole('free');
     setTasks([]);
     setDailyTasks([]);
     setSelectedGroupId(null);
@@ -1449,6 +1459,7 @@ export function useAppController() {
   return {
     isDemoMode,
     userEmail,
+    userRole,
     avatarId,
     changeAvatar,
     token,

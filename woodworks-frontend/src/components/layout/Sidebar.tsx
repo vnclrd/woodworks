@@ -34,6 +34,7 @@ export default function Sidebar({ app, onStartGuide }: Props) {
     groupToDelete,
     setGroupToDelete,
     userEmail,
+    userRole,
     avatarId,
     changeAvatar,
     isMobileNavOpen,
@@ -53,6 +54,14 @@ export default function Sidebar({ app, onStartGuide }: Props) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isMobileNavOpen, setIsMobileNavOpen]);
+
+  const ROLE_BADGE_STYLES: Record<string, string> = {
+    owner: 'bg-[#111827] text-amber-400 border border-amber-500/50',
+    pioneer: 'bg-[#D97706] text-white border border-[#F59E0B]/40',
+    lifetime: 'bg-[#059669] text-white border border-[#10B981]/40',
+    premium: 'bg-[#7C3D96] text-white border border-[#A855F7]/40',
+    free: 'bg-[#4B5563] text-white/80 border border-[#6B7280]/40',
+  };
 
   return (
     <>
@@ -245,6 +254,13 @@ export default function Sidebar({ app, onStartGuide }: Props) {
                 Signed in as
               </p>
               <p className='text-xs text-white/80 truncate'>{userEmail}</p>
+              <span
+                className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold first-letter:uppercase tracking-wider ${
+                  ROLE_BADGE_STYLES[userRole?.toLowerCase()] || ROLE_BADGE_STYLES.free
+                }`}
+              >
+                {userRole}
+              </span>
             </div>
           </div>
         )}
