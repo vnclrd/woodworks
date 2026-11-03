@@ -8,6 +8,13 @@ export interface Task {
   /** Frontend-only until the backend stores task groups. */
   groupId?: string | null;
   groupName?: string | null;
+  subtasks?: Subtask[];
+}
+
+export interface Subtask {
+  id: number;
+  title: string;
+  completed: boolean;
 }
 
 export interface TaskGroup {

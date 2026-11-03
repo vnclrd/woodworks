@@ -307,6 +307,10 @@ export default function MainContent({ app }: Props) {
                   {filteredTasks.map((task) => {
                     const urgent = !task.completed && task.urgent;
                     const pinned = !task.completed && task.pinned;
+                    const subtasks = task.subtasks || [];
+                    const totalSubtasks = subtasks.length;
+                    const completedSubtasks = subtasks.filter((s) => s.completed).length;
+                    const subtaskPercent = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
 
                     return (
                       <motion.li
@@ -348,7 +352,6 @@ export default function MainContent({ app }: Props) {
 
                         <button
                           onClick={() => {
-                            // Phones have no utility sidebar, so open the editor instead
                             if (isMobile) {
                               openEditModal(task);
                               return;
@@ -380,6 +383,25 @@ export default function MainContent({ app }: Props) {
                             <p className='text-xs text-fg-3 mt-0.5 truncate'>
                               {task.description}
                             </p>
+                          )}
+
+                          {/* Subtask Progress Bar */}
+                          {totalSubtasks > 0 && (
+                            <div className='mt-2 flex items-center gap-2 max-w-xs'>
+                              <div className='flex-1 h-1.5 rounded-full bg-line overflow-hidden'>
+                                <div
+                                  className={`h-full transition-all duration-300 ${
+                                    completedSubtasks === totalSubtasks
+                                      ? 'bg-ok'
+                                      : 'bg-primary'
+                                  }`}
+                                  style={{ width: `${subtaskPercent}%` }}
+                                />
+                              </div>
+                              <span className='text-[10px] font-semibold text-fg-3 tabular-nums shrink-0'>
+                                {completedSubtasks}/{totalSubtasks} subtasks
+                              </span>
+                            </div>
                           )}
                         </button>
 

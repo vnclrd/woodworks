@@ -1,6 +1,9 @@
 package com.woodworks.model;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.ArrayList;
+import jakarta.persistence.CascadeType;
 
 import com.woodworks.util.EncryptedStringConverter;
 
@@ -13,6 +16,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -53,6 +57,9 @@ public class Task {
   @Column(columnDefinition = "TEXT")
   private String groupName;
 
+  @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<Subtask> subtasks = new ArrayList<>();
+
   // 3. Default constructor (Required by JPA)
   public Task() {}
 
@@ -90,4 +97,7 @@ public class Task {
 
   public String getGroupName() { return groupName; }
   public void setGroupName(String groupName) { this.groupName = groupName; }
+
+  public List<Subtask> getSubtasks() { return subtasks; }
+  public void setSubtasks(List<Subtask> subtasks) { this.subtasks = subtasks; }
 }

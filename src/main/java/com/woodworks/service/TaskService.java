@@ -29,8 +29,9 @@ public class TaskService {
     }
 
     public List<TaskResponseDto> getTasksByUserEmail(String email) {
-        User user = getUserByEmail(email);
-        return taskRepository.findByUser(user).stream()
+        // Use the custom query that eagerly fetches subtasks via LEFT JOIN FETCH
+        List<Task> tasks = taskRepository.findByUserEmailWithSubtasks(email);
+        return tasks.stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -106,7 +107,7 @@ public class TaskService {
     }
 
     private TaskResponseDto mapToResponseDto(Task task) {
-        return new TaskResponseDto(
+        TaskResponseDto dto = new TaskResponseDto(
                 task.getId(),
                 task.getTitle(),
                 task.getDescription(),
@@ -115,5 +116,12 @@ public class TaskService {
                 task.isUrgent(),
                 task.getGroupName()
         );
+        
+        // Directly attach the subtasks list
+        if (task.getSubtasks() != null) {
+            dto.setSubtasks(task.getSubtasks());
+        }
+
+        return dto;
     }
 }
