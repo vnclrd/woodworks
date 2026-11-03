@@ -6,6 +6,7 @@ import {
   Circle,
   EllipsisVertical,
   Flag,
+  ListChecks,
   Mic,
   MicOff,
   Pencil,
@@ -14,10 +15,12 @@ import {
   RefreshCw,
   Repeat,
   Trash2,
+  X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { AppController } from '../../hooks/useAppController';
 import type { Task } from '../../types/task';
+import SubtaskList from './SubtaskList';
 
 const QUICK_TITLE_MAX = 100;
 
@@ -84,6 +87,9 @@ export default function MainContent({ app }: Props) {
   const [isListening, setIsListening] = useState(false);
   // Phones: the task whose action sheet (pin / urgent / edit / delete) is open
   const [sheetTask, setSheetTask] = useState<Task | null>(null);
+  // Phones: the task whose subtasks sheet is open
+  const [subtaskTaskId, setSubtaskTaskId] = useState<number | null>(null);
+  const subtaskTask = tasks.find((t) => t.id === subtaskTaskId) ?? null;
   const showingDaily = isMobile && mobilePanel === 'daily';
 
   // Character-limit warning states
@@ -310,7 +316,6 @@ export default function MainContent({ app }: Props) {
                     const subtasks = task.subtasks || [];
                     const totalSubtasks = subtasks.length;
                     const completedSubtasks = subtasks.filter((s) => s.completed).length;
-                    const subtaskPercent = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
 
                     return (
                       <motion.li
@@ -350,60 +355,88 @@ export default function MainContent({ app }: Props) {
                           {getTaskKey(task)}
                         </span>
 
-                        <button
-                          onClick={() => {
-                            if (isMobile) {
-                              openEditModal(task);
-                              return;
-                            }
-                            app.setActiveTaskId(task.id);
-                            app.setIsSidebarOpen(true);
-                            setIsSidebarCollapsed(false);
-                          }}
-                          title={task.title}
-                          className='min-w-0 text-left cursor-pointer'
-                        >
-                          <p
-                            className={`text-sm font-medium truncate hover:underline ${
-                              task.completed ? 'line-through text-fg-3' : ''
-                            }`}
+                        <div className='min-w-0'>
+                          <button
+                            onClick={() => {
+                              if (isMobile) {
+                                openEditModal(task);
+                                return;
+                              }
+                              app.setActiveTaskId(task.id);
+                              app.setIsSidebarOpen(true);
+                              setIsSidebarCollapsed(false);
+                            }}
+                            title={task.title}
+                            className='block w-full min-w-0 text-left cursor-pointer'
                           >
-                            {pinned && (
-                              <Pin className='inline w-3.5 h-3.5 mr-1 text-warn' />
-                            )}
+                            <p
+                              className={`text-sm font-medium truncate hover:underline ${
+                                task.completed ? 'line-through text-fg-3' : ''
+                              }`}
+                            >
+                              {pinned && (
+                                <Pin className='inline w-3.5 h-3.5 mr-1 text-warn' />
+                              )}
 
-                            {urgent && (
-                              <Flag className='inline w-3.5 h-3.5 mr-1 text-orange-fg' />
-                            )}
+                              {urgent && (
+                                <Flag className='inline w-3.5 h-3.5 mr-1 text-orange-fg' />
+                              )}
 
-                            {task.title}
-                          </p>
-
-                          {task.description && (
-                            <p className='text-xs text-fg-3 mt-0.5 truncate'>
-                              {task.description}
+                              {task.title}
                             </p>
-                          )}
 
-                          {/* Subtask Progress Bar */}
+                            {task.description && (
+                              <p className='text-xs text-fg-3 mt-0.5 truncate'>
+                                {task.description}
+                              </p>
+                            )}
+                          </button>
+
                           {totalSubtasks > 0 && (
-                            <div className='mt-2 flex items-center gap-2 max-w-xs'>
-                              <div className='flex-1 h-1.5 rounded-full bg-line overflow-hidden'>
-                                <div
-                                  className={`h-full transition-all duration-300 ${
+                            <button
+                              onClick={() => {
+                                if (isMobile) {
+                                  setSubtaskTaskId(task.id);
+                                  return;
+                                }
+                                app.setActiveTaskId(task.id);
+                                app.setIsSidebarOpen(true);
+                                setIsSidebarCollapsed(false);
+                              }}
+                              aria-label={`${completedSubtasks} of ${totalSubtasks} subtasks done. Open subtasks.`}
+                              className='mt-1 -ml-1.5 px-1.5 py-1 inline-flex items-center gap-2 rounded hover:bg-tint cursor-pointer'
+                            >
+                              <ListChecks
+                                className={`w-3.5 h-3.5 ${
+                                  completedSubtasks === totalSubtasks
+                                    ? 'text-ok'
+                                    : 'text-fg-3'
+                                }`}
+                              />
+                              <span className='w-14 h-1.5 rounded-full bg-line overflow-hidden'>
+                                <span
+                                  className={`block h-full transition-[width] duration-300 ${
                                     completedSubtasks === totalSubtasks
                                       ? 'bg-ok'
-                                      : 'bg-primary'
+                                      : 'bg-[#BF5700]'
                                   }`}
-                                  style={{ width: `${subtaskPercent}%` }}
+                                  style={{
+                                    width: `${(completedSubtasks / totalSubtasks) * 100}%`,
+                                  }}
                                 />
-                              </div>
-                              <span className='text-[10px] font-semibold text-fg-3 tabular-nums shrink-0'>
-                                {completedSubtasks}/{totalSubtasks} subtasks
                               </span>
-                            </div>
+                              <span
+                                className={`text-[11px] font-semibold tabular-nums ${
+                                  completedSubtasks === totalSubtasks
+                                    ? 'text-ok'
+                                    : 'text-fg-3'
+                                }`}
+                              >
+                                {completedSubtasks}/{totalSubtasks}
+                              </span>
+                            </button>
                           )}
-                        </button>
+                        </div>
 
                         <div className='hidden @xl:flex flex-wrap items-center content-center gap-1 min-w-0'>
                           {pinned && (
@@ -777,6 +810,14 @@ export default function MainContent({ app }: Props) {
                     },
                   ]),
               {
+                key: 'subtasks',
+                label: sheetTask.subtasks?.length
+                  ? `Subtasks (${sheetTask.subtasks.filter((x) => x.completed).length}/${sheetTask.subtasks.length})`
+                  : 'Subtasks',
+                icon: <ListChecks className='w-5 h-5' />,
+                onClick: () => setSubtaskTaskId(sheetTask.id),
+              },
+              {
                 key: 'edit',
                 label: 'Edit task',
                 icon: <Pencil className='w-5 h-5' />,
@@ -793,7 +834,88 @@ export default function MainContent({ app }: Props) {
           />
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {subtaskTask && (
+          <SubtaskSheet
+            key='subtask-sheet'
+            app={app}
+            task={subtaskTask}
+            onClose={() => setSubtaskTaskId(null)}
+          />
+        )}
+      </AnimatePresence>
     </main>
+  );
+}
+
+// Bottom sheet for managing subtasks on phones (the inspector sidebar is hidden there)
+function SubtaskSheet({
+  app,
+  task,
+  onClose,
+}: {
+  app: AppController;
+  task: Task;
+  onClose: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className='fixed inset-0 z-50'>
+      <motion.div
+        className='absolute inset-0 bg-[#2125298A]'
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.15 }}
+        onClick={onClose}
+      />
+
+      <motion.div
+        role='dialog'
+        aria-modal='true'
+        aria-label={`Subtasks for ${task.title}`}
+        className='absolute inset-x-0 bottom-0 max-h-[85dvh] flex flex-col rounded-t-xl bg-surface text-fg shadow-[0_-8px_24px_#21252933]'
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ duration: reduceMotion ? 0 : 0.22, ease: 'easeOut' }}
+      >
+        <div className='shrink-0 pt-2'>
+          <div className='mx-auto h-1 w-10 rounded-full bg-line' />
+          <div className='flex items-center justify-between gap-2 pl-5 pr-2 pt-2'>
+            <p className='text-sm font-semibold truncate'>{task.title}</p>
+            <button
+              onClick={onClose}
+              aria-label='Close subtasks'
+              className='h-10 w-10 shrink-0 flex items-center justify-center rounded text-fg-2 hover:bg-tint cursor-pointer'
+            >
+              <X className='w-5 h-5' />
+            </button>
+          </div>
+        </div>
+
+        <div className='flex-1 min-h-0 overflow-y-auto px-5 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]'>
+          <SubtaskList
+            key={task.id}
+            app={app}
+            taskId={task.id}
+            tone='surface'
+            addFirst
+            onUpgrade={onClose}
+          />
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
