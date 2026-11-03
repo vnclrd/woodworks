@@ -9,6 +9,7 @@ import Sidebar from './components/layout/Sidebar';
 import AccountManagerModal from './components/modals/AccountManagerModal';
 import DeleteAccountConfirmModal from './components/modals/DeleteAccountConfirmModal';
 import GroupModal from './components/modals/GroupModal';
+import PlansModal from './components/modals/PlansModal';
 import TaskDeleteModal from './components/modals/TaskDeleteModal';
 import TaskModal from './components/modals/TaskModal';
 import MainContent from './components/tasks/MainContent';
@@ -80,6 +81,7 @@ export default function App() {
           <TaskModal app={app} />
           <GroupModal app={app} />
           <AccountManagerModal app={app} />
+          <PlansModal app={app} />
           <DeleteAccountConfirmModal app={app} />
           <TaskDeleteModal app={app} />
           {showGuide && <GuideTour onClose={closeGuide} />}

@@ -1,4 +1,5 @@
-import { KeyRound, Settings, ShieldAlert, X } from 'lucide-react';
+import { Check, KeyRound, Settings, ShieldAlert, Sparkles, X } from 'lucide-react';
+import { getPlanLabel, hasFullAccess, isFreeRole } from '../../config/plans';
 import type { AppController } from '../../hooks/useAppController';
 
 type Props = { app: AppController };
@@ -18,7 +19,18 @@ export default function AccountManagerModal({ app }: Props) {
     handleChangePassword,
     setIsDeleteAccountConfirmOpen,
     setDeleteAccountPhrase,
+    userRole,
+    setIsPlansModalOpen,
   } = app;
+
+  const fullAccess = hasFullAccess(userRole);
+  const isFree = isFreeRole(userRole);
+
+  const openPlans = () => {
+    setIsAccountManagerOpen(false);
+    setIsPlansModalOpen(true);
+  };
+
   return (
     <>
       {isAccountManagerOpen && (
@@ -147,6 +159,41 @@ export default function AccountManagerModal({ app }: Props) {
                     </button>
                   </div>
                 </form>
+              </section>
+
+              {/* Plan summary: purchasing lives in PlansModal */}
+              <section className='border-t border-line pt-5'>
+                <div className='flex items-center gap-2 mb-3'>
+                  <Sparkles className='w-4 h-4 text-fg-2' />
+                  <h3 className='text-sm font-semibold'>Plan</h3>
+                </div>
+                <div className='flex items-center justify-between gap-3 rounded border border-line bg-subtle p-3'>
+                  <div className='min-w-0'>
+                    <div className='flex items-center gap-2'>
+                      <span className='text-sm font-semibold'>
+                        {getPlanLabel(userRole)}
+                      </span>
+                      {fullAccess && <Check className='w-4 h-4 text-ok' />}
+                    </div>
+                    <p className='text-xs leading-5 text-fg-3 mt-0.5'>
+                      {fullAccess
+                        ? 'Full, permanent access to every feature.'
+                        : isFree
+                          ? 'See what Premium and Lifetime add.'
+                          : 'Premium is active. Lifetime removes renewals.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={openPlans}
+                    className={`h-9 px-3 shrink-0 rounded text-sm font-semibold transition-colors cursor-pointer ${
+                      fullAccess
+                        ? 'text-fg-2 hover:bg-tint'
+                        : 'bg-[#BF5700] hover:bg-[#914000] text-white'
+                    }`}
+                  >
+                    {fullAccess ? 'Details' : isFree ? 'Upgrade' : 'View plans'}
+                  </button>
+                </div>
               </section>
 
               <section className='border-t border-line pt-5'>

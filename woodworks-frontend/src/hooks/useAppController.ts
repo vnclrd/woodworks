@@ -120,6 +120,7 @@ export function useAppController() {
   const [groupToDelete, setGroupToDelete] = useState<TaskGroup | null>(null);
 
   const [isAccountManagerOpen, setIsAccountManagerOpen] = useState(false);
+  const [isPlansModalOpen, setIsPlansModalOpen] = useState(false);
   const [currentPasswordInput, setCurrentPasswordInput] = useState('');
   const [newAccountPasswordInput, setNewAccountPasswordInput] = useState('');
   const [confirmAccountPasswordInput, setConfirmAccountPasswordInput] =
@@ -303,6 +304,36 @@ export function useAppController() {
       logActivity('Deleted a task group');
     } catch (err) {
       showToast("Couldn't delete the group. Try again.", 'error');
+    }
+  };
+
+  const handleUpgrade = async (plan: 'premium_monthly' | 'premium_yearly' | 'lifetime') => {
+    if (isDemoMode) {
+      const newRole = plan === 'lifetime' ? 'lifetime' : 'premium';
+      setUserRole(newRole);
+      localStorage.setItem('woodworks_user_role', newRole);
+      showToast(`Mock purchase successful! Upgraded to ${newRole} (Demo Mode)`);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL.replace(/\/$/, '')}/api/subscription/upgrade`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ plan }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to process subscription');
+
+      setUserRole(data.role);
+      localStorage.setItem('woodworks_user_role', data.role);
+      showToast(data.message);
+    } catch (err: any) {
+      showToast(err.message, 'error');
     }
   };
 
@@ -1333,6 +1364,7 @@ export function useAppController() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (isDeleteAccountConfirmOpen) setIsDeleteAccountConfirmOpen(false);
+      else if (isPlansModalOpen) setIsPlansModalOpen(false);
       else if (taskToDelete) setTaskToDelete(null);
       else if (isModalOpen) closeModal();
       else if (isGroupModalOpen) setIsGroupModalOpen(false);
@@ -1346,6 +1378,7 @@ export function useAppController() {
     isLargeScreen,
     isGroupModalOpen,
     isAccountManagerOpen,
+    isPlansModalOpen,
     isDeleteAccountConfirmOpen,
   ]);
 
@@ -1460,6 +1493,7 @@ export function useAppController() {
     isDemoMode,
     userEmail,
     userRole,
+    handleUpgrade,
     avatarId,
     changeAvatar,
     token,
@@ -1492,6 +1526,8 @@ export function useAppController() {
     setGroupNameInput,
     isAccountManagerOpen,
     setIsAccountManagerOpen,
+    isPlansModalOpen,
+    setIsPlansModalOpen,
     currentPasswordInput,
     setCurrentPasswordInput,
     newAccountPasswordInput,
