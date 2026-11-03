@@ -39,6 +39,7 @@ public class AuthController {
         }
 
         User user = new User(email, passwordEncoder.encode(password));
+        user.setRole("free");
         String verificationToken = UUID.randomUUID().toString();
         user.setVerificationToken(verificationToken);
         user.setEnabled(false);
@@ -119,7 +120,8 @@ public class AuthController {
         String token = jwtUtil.generateToken(email);
         return ResponseEntity.ok(Map.of(
             "token", token, 
-            "email", email, 
+            "email", email,
+            "role", user.getRole(),
             "avatar", user.getAvatar() != null ? user.getAvatar() : ""
         ));
     }

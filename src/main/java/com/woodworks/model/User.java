@@ -36,6 +36,8 @@ public class User {
 
     private String avatar;
 
+    private String role = "free";
+
     // Constructors
     public User() {}
 
@@ -80,4 +82,7 @@ public class User {
 
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }
+
+    public String getRole() { return role != null ? role : "free"; }
+    public void setRole(String role) { this.role = role; }
 }
