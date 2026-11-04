@@ -6,6 +6,7 @@ import {
   StickyNote,
   Activity,
   ListFilter,
+  BarChart2,
   PanelRightClose,
   PanelRightOpen,
   Pin,
@@ -22,7 +23,9 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AppController } from '../../hooks/useAppController';
+import { isFreeRole } from '../../config/plans';
 import SubtaskList from '../tasks/SubtaskList';
+import { BASE_URL } from '../../config/appConfig';
 
 interface RightSidebarProps {
   app: AppController;
@@ -39,15 +42,12 @@ const TABS = [
   { id: 2, label: 'Notes', icon: StickyNote },
   { id: 3, label: 'Activity', icon: Activity },
   { id: 4, label: 'Filters', icon: ListFilter },
+  { id: 5, label: 'Analytics', icon: BarChart2 },
 ];
 
 // Inputs sit on the orange bar, so they are white with dark text for contrast (same as the AI chat box)
 const fieldClass =
   'w-full rounded bg-white px-3 text-sm text-[#212529] placeholder-[#5C636A] border-2 border-transparent focus:outline-none focus:border-[#212529]';
-
-// ---------------------------------------------------------------------------
-// Small shared pieces
-// ---------------------------------------------------------------------------
 
 // Friendly empty state used by several tabs (optional badge, e.g. "Coming soon")
 function EmptyState({
@@ -184,7 +184,8 @@ function useFocusTimer(app: AppController) {
   };
 
   // Called when the countdown reaches zero: count the session and queue up the next phase (not auto-started)
-  const finish = () => {
+  // Called when the countdown reaches zero: count the session and queue up the next phase (not auto-started)
+  const finish = async () => {
     endsAtRef.current = null;
     setIsRunning(false);
     playBeep();
@@ -192,6 +193,32 @@ function useFocusTimer(app: AppController) {
     if (modeRef.current === 'work') {
       const count = sessionsRef.current + 1;
       setSessionsToday(count);
+
+      // 1. Record completed session locally for immediate UI update
+      try {
+        const historyKey = 'woodworks_weekly_pomodoro_history';
+        const todayKey = getTodayKey();
+        const history = JSON.parse(localStorage.getItem(historyKey) || '{}');
+        history[todayKey] = (history[todayKey] || 0) + 1;
+        localStorage.setItem(historyKey, JSON.stringify(history));
+      } catch {}
+
+      // 2. Send network request to save the focus session in the backend database table
+      if (!app.isDemoMode && app.token) {
+        try {
+          await fetch(`${BASE_URL.replace(/\/$/, '')}/api/analytics/session`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${app.token}`,
+            },
+            body: JSON.stringify({ durationMinutes: 25 }),
+          });
+        } catch (err) {
+          console.warn('Could not sync focus session to backend database.', err);
+        }
+      }
+
       const next: TimerMode = count % 4 === 0 ? 'longBreak' : 'shortBreak';
       setMode(next);
       setRemaining(TIMER_DURATIONS[next]);
@@ -970,6 +997,112 @@ export default function RightSidebar({ app }: RightSidebarProps) {
     );
   };
 
+  const getLast7Days = () => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    }
+    return days;
+  };
+
+  const renderAnalytics = () => {
+    if (isFreeRole(app.userRole)) {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-3">
+            <h3 className="font-semibold">Weekly Analytics</h3>
+            <span className="text-xs">Locked</span>
+          </div>
+          <EmptyState
+            icon={BarChart2}
+            title="Weekly Analytics is a Premium Feature"
+            description="Unlock detailed insights into your weekly focus hours, peak productivity days, and task completion velocity."
+            badge="Premium"
+          />
+          <button
+            type="button"
+            onClick={() => app.setIsPlansModalOpen(true)}
+            className="w-full h-10 rounded bg-white text-[#914000] font-semibold text-sm hover:bg-[#FFE8D1] transition-colors cursor-pointer"
+          >
+            Upgrade to Premium
+          </button>
+        </div>
+      );
+    }
+
+    const weekDays = getLast7Days();
+    let history: Record<string, number> = {};
+    try {
+      history = JSON.parse(localStorage.getItem('woodworks_weekly_pomodoro_history') || '{}');
+    } catch {}
+
+    const totalSessionsWeek = weekDays.reduce((acc, d) => acc + (history[d] || 0), 0);
+    const totalMinutesWeek = totalSessionsWeek * 25;
+    const completedTasksCount = app.tasks.filter((t) => t.completed).length;
+    const maxSessions = Math.max(1, ...weekDays.map((d) => history[d] || 0));
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-3">
+          <h3 className="font-semibold">Weekly Analytics</h3>
+          <span className="text-xs">Last 7 Days</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded bg-[#914000] p-3">
+            <p className="text-[11px] text-[#FFE8D1]">Total Focus Time</p>
+            <p className="text-lg font-bold">
+              {totalMinutesWeek >= 60 ? `${(totalMinutesWeek / 60).toFixed(1)} hrs` : `${totalMinutesWeek} mins`}
+            </p>
+          </div>
+          <div className="rounded bg-[#914000] p-3">
+            <p className="text-[11px] text-[#FFE8D1]">Tasks Completed</p>
+            <p className="text-lg font-bold">{completedTasksCount}</p>
+          </div>
+        </div>
+
+        <div className="rounded bg-[#914000] p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold">Focus Distribution</p>
+            <span className="text-[11px] text-[#FFE8D1]">{totalSessionsWeek} total sessions</span>
+          </div>
+          <div className="flex items-end justify-between h-32 pt-4 px-1 border-b border-white/20">
+            {weekDays.map((dateStr) => {
+              const sessions = history[dateStr] || 0;
+              const heightPercent = Math.max(12, Math.round((sessions / maxSessions) * 100));
+              const dayLabel = new Date(dateStr).toLocaleDateString(undefined, { weekday: 'narrow' });
+
+              return (
+                <div key={dateStr} className="flex flex-col items-center gap-1.5 flex-1">
+                  <span className="text-[10px] text-white font-mono">{sessions > 0 ? sessions : ''}</span>
+                  <div className="w-full max-w-5.5 bg-white/20 rounded-t overflow-hidden h-full flex items-end">
+                    <div
+                      className="w-full bg-white transition-all duration-500 rounded-t"
+                      style={{ height: sessions > 0 ? `${heightPercent}%` : '4%' }}
+                      title={`${sessions} sessions (${sessions * 25} mins)`}
+                    />
+                  </div>
+                  <span className="text-[10px] text-[#FFE8D1] font-medium">{dayLabel}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded bg-[#914000] p-3 space-y-1">
+          <p className="text-xs font-semibold">Productivity Insights</p>
+          <p className="text-xs text-[#FFE8D1] leading-relaxed">
+            {totalSessionsWeek === 0
+              ? 'Complete your first focus session today to start building your weekly momentum!'
+              : `You've maintained steady focus across the week. Keep up the great pace!`}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <aside
       aria-label="Workspace tools"
@@ -1031,7 +1164,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
             role="tablist"
             aria-label="Workspace tools"
             onKeyDown={handleTabKeyDown}
-            className="shrink-0 grid grid-cols-5 gap-1 p-2 border-b border-white/20"
+            className="shrink-0 grid grid-cols-6 gap-1 p-2 border-b border-white/20"
           >
             {TABS.map((tab, idx) => {
               const Icon = tab.icon;
@@ -1072,6 +1205,7 @@ export default function RightSidebar({ app }: RightSidebarProps) {
             {activeTab === 2 && renderNotes()}
             {activeTab === 3 && renderActivity()}
             {activeTab === 4 && renderFilters()}
+            {activeTab === 5 && renderAnalytics()}
           </div>
         </>
       )}
